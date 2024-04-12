@@ -1,7 +1,7 @@
 import { Button, Frog } from 'frog'
 // import { neynar } from 'frog/hubs';
 import { handle } from 'frog/vercel';
-// import { devtools } from 'frog/dev';
+import { devtools } from 'frog/dev';
 import { serveStatic } from 'frog/serve-static';
 
 // Redis
@@ -60,7 +60,7 @@ async function initializeGameState() {
 // Utils
 export const app = new Frog({
   assetsPath: '/',
-  basePath: '/api',
+  basePath: '/',
   // Supply a Hub to enable frame verification.
   // hub: neynar({ apiKey: 'NEYNAR_FROG_FM' })
 })
@@ -190,7 +190,7 @@ app.frame('/time', async(c) => {
   // };
   
   // Case - Round is still active
-  let temp = 0;
+  let temp;
   if(c.frameData?.fid != null && c.frameData?.address != null){
     // Need to get the username of the person now
     // Should regulary here
@@ -232,7 +232,7 @@ app.frame('/time', async(c) => {
 // app.use("/", fdk.analyticsMiddleware({ frameId: "Testing", customId: "Test id"}));
 // if (import.meta.env?.MODE === 'development') devtools(app, { serveStatic })
 //   else devtools(app, { assetsPath: '/.frog' })
-// devtools(app, { serveStatic })
+devtools(app, { serveStatic })
 
 // Vercel
 export const GET = handle(app)

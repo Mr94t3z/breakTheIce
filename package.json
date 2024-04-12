@@ -3,12 +3,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "frog vercel-build",
+    "build": "node --trace-warnings frog vercel-build",
     "dev": "frog dev",
     "deploy": "vercel"
   },
   "dependencies": {
-    "frog": "latest",
+    "frog": "0.8.1",
     "hono": "^4",
     "redis": "^4.6.13"
   },
