@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "node ./node_modules/.bin/frog vercel-build",
+    "build": "node frog vercel-build",
     "dev": "frog dev",
     "deploy": "vercel"
   },
