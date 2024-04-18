@@ -117,8 +117,7 @@ app.frame('/', (c) =>
       </div>
     ),
     intents: [
-      <Button value="apples">Click Me</Button>,
-      <Button.Transaction target="/transfer">Test</Button.Transaction>,
+      <Button value="grab">Click Me</Button>,
       status === 'response' && <Button.Reset>Reset</Button.Reset>,
     ],
   })
