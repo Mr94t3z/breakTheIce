@@ -6,6 +6,8 @@ import { serveStatic } from 'frog/serve-static';
 
 // Redis
 import { createClient } from 'redis';
+// Frog UI
+import { Box, Heading, Text, VStack, vars } from './ui.js';
 
 const client = createClient({
   password: 'nZUpPOLpXmmeQBTSUL5X3ByDwlPgXE9Y',
@@ -22,7 +24,7 @@ const gameDuration = 1 * 60 * 1000;
 const gameEndTime = Date.now() + gameDuration;
 const startTargetClicks = Math.floor(Math.random() * 10) + 1;
 const roundKey = "round:clickers";
-const temp = "";
+
 client.multi()
   .del(roundKey)
   .set('roundEndTime', gameEndTime.toString())
@@ -61,6 +63,7 @@ async function initializeGameState() {
 export const app = new Frog({
   assetsPath: '/',
   basePath: '/api',
+  ui: { vars },
   // Supply a Hub to enable frame verification.
   // hub: neynar({ apiKey: 'NEYNAR_FROG_FM' })
 })
@@ -76,45 +79,25 @@ app.frame('/', (c) =>
   {
   // Other case is we're just getting started
   const { buttonValue, status } = c
-  const fruit = buttonValue
   
   return c.res({
     action: '/time',
-    image: (
-      <div
-        style={{
-          alignItems: 'center',
-          background:
-            status === 'response'
-              ? 'linear-gradient(to right, #432889, #17101F)'
-              : 'black',
-          backgroundSize: '100% 100%',
-          display: 'flex',
-          flexDirection: 'column',
-          flexWrap: 'nowrap',
-          height: '100%',
-          justifyContent: 'center',
-          textAlign: 'center',
-          width: '100%',
-        }}
+    image: 
+    // 
+    (
+      <Box
+        grow
+        alignHorizontal="center"
+        backgroundColor="background"
+        padding="32"
       >
-        <div
-          style={{
-            color: 'white',
-            fontSize: 60,
-            fontStyle: 'normal',
-            letterSpacing: '-0.025em',
-            lineHeight: 1.4,
-            marginTop: 30,
-            padding: '0 120px',
-            whiteSpace: 'pre-wrap',
-          }}
-        >
-          {status === 'response'
-            ? `Nice choice.${fruit ? ` ${fruit.toUpperCase()}!!` : ''}`
-            : 'Welcome!'}
-        </div>
-      </div>
+        <VStack gap="4">
+          <Heading>Swell Grab</Heading>
+          <Text color="text200" size="20">
+            Grab the pearl to win!
+          </Text>
+        </VStack>
+      </Box>
     ),
     intents: [
       <Button value="grab">Click Me</Button>,
