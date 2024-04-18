@@ -22,7 +22,7 @@ const gameDuration = 1 * 60 * 1000;
 const gameEndTime = Date.now() + gameDuration;
 const startTargetClicks = Math.floor(Math.random() * 10) + 1;
 const roundKey = "round:clickers";
-
+const temp = "";
 client.multi()
   .del(roundKey)
   .set('roundEndTime', gameEndTime.toString())
