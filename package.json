@@ -3,9 +3,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "node frog vercel-build",
+    "build": "node ./node_modules/.bin/frog vercel-build",
     "dev": "frog dev",
-    "deploy": "vercel"
+    "deploy": "vercel",
+    "deploy-prod": "vercel --prod"
   },
   "dependencies": {
     "frog": "latest",
@@ -15,6 +16,6 @@
   "devDependencies": {
     "tsx": "^4.7.1",
     "typescript": "^5.3.3",
-    "vercel": "^32.4.1"
+    "vercel": "^34.0.0"
   }
 }

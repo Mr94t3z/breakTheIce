@@ -60,7 +60,7 @@ async function initializeGameState() {
 // Utils
 export const app = new Frog({
   assetsPath: '/',
-  basePath: '/',
+  basePath: '/api',
   // Supply a Hub to enable frame verification.
   // hub: neynar({ apiKey: 'NEYNAR_FROG_FM' })
 })
