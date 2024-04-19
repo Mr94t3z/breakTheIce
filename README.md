@@ -25,12 +25,14 @@ Thinking: this will create a social dynamic where it requires both coordination 
 - [X] Round expires logic
 - [X] currClicks exceeds targetNum
 - [X] atomic Redis updates
-- [ ] Include current clickers username in FrogUI image
 - [X] Hosted on Vercel
-- [ ] Update domain link to Swell, if possible
 - [ ] Final Slide imagery
 - [ ] Intro slide imagery
+- [ ] Game State slide imagery
+- [ ] Final slide imagery for game over
 
 ### Nice to Haves
+- [ ] Update domain link to Swell, if possible
 - [ ] Cron job to automatically start round
 - [ ] Those who have broken game previously no longer eligible (prevent spam)
+- [ ] Usernames of people who have a spot in the round
