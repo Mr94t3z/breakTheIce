@@ -7,7 +7,7 @@ import { serveStatic } from 'frog/serve-static';
 // Redis
 import { createClient } from 'redis';
 // Frog UI
-import { Box, Heading, Text, VStack, vars } from './ui.js';
+import { Box, Heading, Text, VStack, Image, vars, HStack, Columns } from './ui.js';
 
 const client = createClient({
   password: 'nZUpPOLpXmmeQBTSUL5X3ByDwlPgXE9Y',
@@ -22,7 +22,8 @@ await client.connect();
 // Setup game constraints
 const gameDuration = 1 * 60 * 1000;
 const gameEndTime = Date.now() + gameDuration;
-const startTargetClicks = Math.floor(Math.random() * 10) + 1;
+// const startTargetClicks = Math.floor(Math.random() * 10) + 1;
+const startTargetClicks = 2;
 const roundKey = "round:clickers";
 
 client.multi()
@@ -35,7 +36,8 @@ client.multi()
 // Function to start a new round
 // Used after time limit is broken or currClicks exceeds numClicks
 async function initializeGameState() {
-  const targetClicks = Math.floor(Math.random() * 10) + 1;
+  // const targetClicks = Math.floor(Math.random() * 10) + 1;
+  const targetClicks = 2;
   // const roundEndTime = Date.now() + gameDuration;
 
   // Redis calls to set the state of the game
@@ -53,17 +55,12 @@ async function initializeGameState() {
 // const fetch = require('node-fetch');
 // const NEYNAR_API_KEY = process.env.NEYNAR_API_KEY ?? "";
 
-// Frame Analytics
-// const fdk = new PinataFDK({
-//   pinata_jwt: process.env.PINATA_JWT as string,
-//   pinata_gateway: "orange-worrying-impala-198.mypinata.cloud"}, 
-// );
-
 // Utils
 export const app = new Frog({
   assetsPath: '/',
   basePath: '/api',
   ui: { vars },
+  browserLocation: "https://swellnetwork.io",
   // Supply a Hub to enable frame verification.
   // hub: neynar({ apiKey: 'NEYNAR_FROG_FM' })
 })
@@ -88,23 +85,73 @@ app.frame('/', (c) =>
       <Box
         grow
         alignHorizontal="center"
+        alignVertical="center"
         backgroundColor="background"
         padding="32"
       >
-        <VStack gap="4">
+        <VStack 
+        
+        gap="4"
+        >
           <Heading>Swell Grab</Heading>
-          <Text color="text200" size="20">
+          <Text align="left"color="text200" size="20">
             Grab the pearl to win!
+          </Text>
+          <Text align="end" color="text200" size = "16">
+            Be careful, too many clicks can ruin the game
           </Text>
         </VStack>
       </Box>
     ),
     intents: [
       <Button value="grab">Click Me</Button>,
+      <Button value="checkGame" action= "/checkGame">Check Game</Button>,
       status === 'response' && <Button.Reset>Reset</Button.Reset>,
     ],
   })
 })
+
+// Frame to check the game state
+app.frame('/checkGame', async(c) => {
+
+  // Show the number of people who have clicked the button and the remaining time in human readable format 
+  // TODO: Include usernames of people who have clicked the button
+  // const roundEndTime = parseInt(await client.get("roundEndTime") as string, 10);
+  const currClicks = Number(await client.sCard(roundKey));
+  const targetClicks = Number(await client.get('targetClicks'));
+  console.log("currClick: ", currClicks);
+  console.log("targetClicks: ", targetClicks);
+
+  return c.res({
+    image: (
+      <Box>
+        <HStack>
+          <Image 
+              src= "/mid_game.png"
+              height="100%"
+            />
+            <Box>
+              <Heading>Game State</Heading>
+              {/* <Text align="left"color="text200" size="20">
+                Current Clicks: ${currClicks} </Text> */}
+                <Text align="left"color="text200" size="20">
+                  Target Clicks: {targetClicks} 
+                </Text>
+                {/* TODO: Time Left */}
+                <Text align="left"color="text200" size="20">
+                  Time Left in Round: todo
+                </Text>
+                {/* TODO: Curr Spots Taken */}
+                {/* <Text align="left"color="text200" size="20">
+                  Spots Taken: {currClicks} / { targetClicks }
+                </Text> */}
+                
+            </Box>            
+        </HStack>
+      </Box>
+    )
+  })
+});
 
 // Used to show the resulting time the button is pressed
 app.frame('/time', async(c) => {
@@ -114,6 +161,7 @@ app.frame('/time', async(c) => {
   // Case - Clicks > Target Clicks
   const currClicks = Number(await client.sCard(roundKey));
   const targetClicks = Number(await client.get('targetClicks'));
+  let updatedClicks;
   console.log("currClick: ", currClicks);
   console.log("targetClicks: ", targetClicks);
   // Case - round is over already
@@ -136,10 +184,23 @@ app.frame('/time', async(c) => {
       // Case - Round is over
       // Setup and start a new round
       initializeGameState();
+      // Include users clicks in the new round
+      if(c.frameData?.fid != null){
+        try {
+          const replies = await client.multi()
+            .sAdd(roundKey, (c.frameData?.fid).toString())
+            .sCard(roundKey)
+            .exec();
+          updatedClicks = replies[1];
+        } catch (err) {
+          // handle error
+          throw err;
+        }
+      }
       return c.res({
         image: (
           <div style={{ color: 'white', display: 'flex', fontSize: 60 }}>
-            { "New round started"}
+            { "Button pushed by " + c.frameData?.fid + " currently " + currClicks + "/" + targetClicks}
           </div>
         )
       })
@@ -155,9 +216,19 @@ app.frame('/time', async(c) => {
     initializeGameState();
     return c.res({
       image: (
-        <div style={{ color: 'white', display: 'flex', fontSize: 60 }}>
-          { "You ruined it for everyone"}
-        </div>
+        <Box alignContent='center'>
+          <HStack>
+            <Image 
+              // width="100%" 
+              height="100%" 
+              src="/cracking_ice.png"
+            />
+            <Text align="center" color="text200" size="20">
+              You cracked the ice :/
+            </Text>
+          </HStack>
+          
+        </Box>
       )
     })
   }
@@ -172,25 +243,25 @@ app.frame('/time', async(c) => {
   // };
   
   // Case - Round is still active
-  let temp;
+  
   if(c.frameData?.fid != null && c.frameData?.address != null){
     // Need to get the username of the person now
     // Should regulary here
   } else if(c.frameData?.fid != null){
     // TODO: Consider disallowing a person if they break the game
-    console.log("Adding a new user to click list");
+    console.log("Adding a new user to click list", c.frameData?.fid);
     try {
       const replies = await client.multi()
         .sAdd(roundKey, (c.frameData?.fid).toString())
         .sCard(roundKey)
         .exec();
-      temp = replies[1];
+      updatedClicks = replies[1] as number;
     } catch (err) {
       // handle error
       throw err;
     }
-    await client.sAdd(roundKey, (c.frameData?.fid).toString());
-    temp = await client.sCard(roundKey);
+    // await client.sAdd(roundKey, (c.frameData?.fid).toString());
+    // temp = await client.sCard(roundKey);
     // Fetch the Username from Fid
     // await fetch(usernameUrl + (c.frameData?.fid).toString(), neynarOptions)
     //   .then(res => res.json())
@@ -203,9 +274,25 @@ app.frame('/time', async(c) => {
 
   return c.res({
     image: (
-      <div style={{ color: 'white', display: 'flex', fontSize: 60 }}>
-        { "Button pushed by " + c.frameData?.fid + " currently " + temp + "/" + targetClicks}
-      </div>
+      <Box>
+        <HStack>
+          <Image 
+              src= "/mid_game.png"
+              height="100%"
+            />
+            <Box>
+              <Heading>You're on the ice</Heading>
+              {/* <Text align="left"color="text200" size="20">
+                Current Clicks: ${currClicks} </Text> */}
+                <Text align="left"color="text200" size="20">
+                  Current Clicks: {updatedClicks} / {targetClicks}
+                </Text>
+            </Box>            
+        </HStack>
+      </Box>
+      // <div style={{ color: 'white', display: 'flex', fontSize: 60 }}>
+      //   { "Button pushed by " + c.frameData?.fid + " currently " + updatedClicks + "/" + targetClicks}
+      // </div>
     )
   })
 });
