@@ -51,6 +51,14 @@ async function initializeGameState() {
   // await client.del(roundKey);
 }
 
+// Function to format timeRemaining in human readable format, hours:minutes:seconds
+function formatTime(timeRemaining: number) {
+  const hours = Math.floor(timeRemaining / (1000 * 60 * 60));
+  const minutes = Math.floor((timeRemaining % (1000 * 60 * 60)) / (1000 * 60));
+  const seconds = Math.floor((timeRemaining % (1000 * 60)) / 1000);
+  return `${hours}hrs ${minutes}mins ${seconds}secs`;
+}
+
 // Neynar
 // const fetch = require('node-fetch');
 // const NEYNAR_API_KEY = process.env.NEYNAR_API_KEY ?? "";
@@ -119,6 +127,10 @@ app.frame('/checkGame', async(c) => {
   // const roundEndTime = parseInt(await client.get("roundEndTime") as string, 10);
   const currClicks = Number(await client.sCard(roundKey));
   const targetClicks = Number(await client.get('targetClicks'));
+  const roundEndTime = parseInt(await client.get("roundEndTime") as string, 10);
+  const currTime = Date.now();
+  const timeRemaining = roundEndTime - currTime;
+  const timeRemainingFormatted = formatTime(timeRemaining);
   console.log("currClick: ", currClicks);
   console.log("targetClicks: ", targetClicks);
 
@@ -134,12 +146,14 @@ app.frame('/checkGame', async(c) => {
               <Heading>Game State</Heading>
               {/* <Text align="left"color="text200" size="20">
                 Current Clicks: ${currClicks} </Text> */}
-                <Text align="left"color="text200" size="20">
+                <Text align="center"color="text200" size="20">
                   Target Clicks: {targetClicks} 
                 </Text>
-                {/* TODO: Time Left */}
-                <Text align="left"color="text200" size="20">
-                  Time Left in Round: todo
+                <Text align="center" color="text200" size="20" font="default">
+                  Time Left: 
+                </Text>
+                <Text align="center" color="text200" size="20">
+                  {timeRemainingFormatted}
                 </Text>
                 {/* TODO: Curr Spots Taken */}
                 {/* <Text align="left"color="text200" size="20">
@@ -149,7 +163,10 @@ app.frame('/checkGame', async(c) => {
             </Box>            
         </HStack>
       </Box>
-    )
+    ),
+    intents: [
+      <Button value="checkGame" action= "/checkGame">Refresh</Button>,
+    ]
   })
 });
 
