@@ -144,7 +144,8 @@ app.frame('/', (c) =>
   {
   // Other case is we're just getting started
   const { buttonValue, status } = c
-
+  
+  
 
   return c.res({
   image: (
@@ -176,32 +177,6 @@ app.frame('/', (c) =>
           <Button value="checkGame" action= "/checkGame">Check Game</Button>, 
         ],
     })
-
-//   return c.res({
-//     image: (
-//       <Box>
-//         <HStack>
-//           <Image 
-//               src= "/first_frame.png"
-//               height="100%"
-//             />
-//           <Box>
-//             <Heading align="center" decoration='underline'>Don't Break the Ice</Heading>
-//             <Box alignContent='center' grow flexDirection='column' flexWrap='wrap' textWrap='wrap' paddingTop="20">
-//               <Text align="center" color="text200" size="20">
-//                 <Text align="center">Click the button to get on the ice</Text>
-//                 <Text wrap='balance'> Too many on the ice and the game </Text>
-//               </Text>
-//             </Box>
-//           </Box>
-//         </HStack>
-//       </Box> 
-//     ),
-//     intents: [
-//       <Button value="grab" action= "/joinTheIce">Click Me</Button>,
-//       <Button value="checkGame" action= "/checkGame">Check Game</Button>, 
-//     ],
-// })
 })
 
 // Frame to check the game state
@@ -267,6 +242,38 @@ app.frame('/checkGame', async(c) => {
 
 // Used to show the resulting time the button is pressed
 app.frame('/joinTheIce', async(c) => {
+  // Check if the game is over
+  // Check if the game is over
+  const gameOver = await client.get('gameOver');
+  if(gameOver == 'true') {
+    return c.res({
+    image: (
+      <Box>
+        <HStack >
+          <Image 
+              src= "/mid_game.png"
+              height="100%"
+            />
+            <Box alignContent='center' grow flexDirection='column' fontFamily='madimi' paddingTop="2">
+                <Spacer size="16" />
+                <Box alignContent='center' grow flexDirection='column' fontFamily='madimi' paddingTop="4">
+                  <Heading align="center">Winners</Heading>
+                  {usernames.map((username) => (
+                    <Text align="center" color="text200" size="14" font="default">
+                      {username}
+                    </Text>
+                ))}
+                </Box>
+            </Box>
+        </HStack>
+      </Box>
+    ),
+      intents: [
+        <Button value="checkGame" action= "/checkGame">Refresh</Button>,
+        <Button value="rules" action="/"> Rules </Button>,
+      ]
+    })
+  } 
   // Do game checks to see if it is over or not
   // Case - Curr Time > End Time
   const roundEndTime = parseInt(await client.get("roundEndTime") as string, 10);
@@ -281,15 +288,39 @@ app.frame('/joinTheIce', async(c) => {
   if(Date.now() > roundEndTime){
     // Case - Game is over
     if(currClicks == targetClicks) {
+      // set a variable to true to show the game is over
+      await client.set('gameOver', 'true');
+
       console.log("Case - Game over");
       // TODO: Final Frames to show the users who have clicked the button
+      let usernames = await getCurrentPlayers();
       return c.res({
-        image: (
-          <div style={{ color: 'white', display: 'flex', fontSize: 60 }}>
-            { "Game is over, congrats to the winners" }
-          </div>
-        )
-      })
+    image: (
+      <Box>
+        <HStack >
+          <Image 
+              src= "/mid_game.png"
+              height="100%"
+            />
+            <Box alignContent='center' grow flexDirection='column' fontFamily='madimi' paddingTop="2">
+                <Spacer size="16" />
+                <Box alignContent='center' grow flexDirection='column' fontFamily='madimi' paddingTop="4">
+                  <Heading align="center">Winners</Heading>
+                  {usernames.map((username) => (
+                    <Text align="center" color="text200" size="14" font="default">
+                      {username}
+                    </Text>
+                ))}
+                </Box>
+            </Box>
+        </HStack>
+      </Box>
+    ),
+    intents: [
+      <Button value="checkGame" action= "/checkGame">Refresh</Button>,
+      <Button value="rules" action="/"> Rules </Button>,
+    ]
+  })
     } else { 
       // TODO: Update frame to be the same as the base click frame
       console.log("Case - Time expired, start new round");
@@ -449,6 +480,8 @@ app.frame('/joinTheIce', async(c) => {
     ]
   })
 });
+
+
 
 // Devtools
 // app.use("/", fdk.analyticsMiddleware({ frameId: "Testing", customId: "Test id"}));
