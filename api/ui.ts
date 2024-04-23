@@ -12,23 +12,32 @@ export const {
     Text,
     VStack,
     vars,
-    Image
+    Image,
+    Divider,
 } = createSystem({
-    // colors: {
-    //     text: '#000000',
-    //     background: '#ffffff',
-    //     blue: '#0070f3',
-    //     green: '#00ff00',
-    //     red: '#ff0000',
-    //     orange: '#ffaa00',
-    //   },
     fonts: {
         default: [
             {
-                name: "Inter",
+                name: "Open Sans",
                 source: "google",
                 weight: 400,
             },
         ],
+        madimi:  [
+            {
+                name: "Madimi One",
+                source: "google",
+                weight: 400,
+            },
+        ]
     },
+    Box: {
+            alignContent: "center",
+            alignItems: "center",
+            grow: true,
+            width: "100%",
+            height: "100%",
+            justifyContent: "center",
+            backgroundColor: "#44444",
+    }
 })

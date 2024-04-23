@@ -26,10 +26,12 @@ Thinking: this will create a social dynamic where it requires both coordination 
 - [X] currClicks exceeds targetNum
 - [X] atomic Redis updates
 - [X] Hosted on Vercel
-- [ ] Final Slide imagery
+#### UI Updates
 - [ ] Intro slide imagery
-- [ ] Game State slide imagery
+- [X] Game State slide imagery
 - [ ] Final slide imagery for game over
+- [ ] Convert HStack to Columns
+- [ ] Update fonts to match Swell
 
 ### Nice to Haves
 - [ ] Update domain link to Swell, if possible

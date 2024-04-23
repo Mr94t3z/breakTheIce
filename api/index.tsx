@@ -7,7 +7,7 @@ import { serveStatic } from 'frog/serve-static';
 // Redis
 import { createClient } from 'redis';
 // Frog UI
-import { Box, Heading, Text, VStack, Image, vars, HStack, Columns } from './ui.js';
+import { Box, Heading, Text, VStack, Image, vars, HStack, Columns, Divider, Spacer,  } from './ui.js';
 
 const client = createClient({
   password: 'nZUpPOLpXmmeQBTSUL5X3ByDwlPgXE9Y',
@@ -22,8 +22,7 @@ await client.connect();
 // Setup game constraints
 const gameDuration = 1 * 60 * 1000;
 const gameEndTime = Date.now() + gameDuration;
-// const startTargetClicks = Math.floor(Math.random() * 10) + 1;
-const startTargetClicks = 2;
+const startTargetClicks = Math.floor(Math.random() * 10) + 1;
 const roundKey = "round:clickers";
 
 client.multi()
@@ -43,7 +42,7 @@ async function initializeGameState() {
   // Redis calls to set the state of the game
   client.multi()
     .set('targetClicks', targetClicks)
-    .set('roundEndtime', Date.now() + gameDuration)
+    .set('roundEndTime', Date.now() + gameDuration)
     .del(roundKey)
     .exec();
   // await client.set('targetClicks', targetClicks);
@@ -51,12 +50,73 @@ async function initializeGameState() {
   // await client.del(roundKey);
 }
 
+// Helpers
+
 // Function to format timeRemaining in human readable format, hours:minutes:seconds
 function formatTime(timeRemaining: number) {
   const hours = Math.floor(timeRemaining / (1000 * 60 * 60));
   const minutes = Math.floor((timeRemaining % (1000 * 60 * 60)) / (1000 * 60));
   const seconds = Math.floor((timeRemaining % (1000 * 60)) / 1000);
   return `${hours}hrs ${minutes}mins ${seconds}secs`;
+}
+
+async function getFormattedTimeRemaining(){
+  const roundEndTime = parseInt(await client.get("roundEndTime") as string, 10);
+  const currTime = Date.now();
+  const timeRemaining = roundEndTime - currTime;
+  const timeRemainingFormatted = formatTime(timeRemaining);
+
+  return timeRemainingFormatted;
+}
+
+// Used for fetching Farcaster username
+async function getUsernames(fids: string[]) {
+  // join the fids with a comma
+  const fidsString = fids.join(',');
+  console.log("fidsString: ", fidsString);
+  const usernameUrl = 'https://api.neynar.com/v2/farcaster/user/bulk?fids=';
+  // TODO - api key from env
+  const neynarOptions = {
+    method: 'GET',
+    headers: { accept: 'application/json', api_key: '14575066-A15B-4807-9508-F260E1B2223A' }
+  };
+  let temp: any = [];
+  let allUsernames = [];
+  try{
+    // Fetch the Username from Fid
+    await fetch(usernameUrl + fidsString, neynarOptions)
+    .then(res => res.json())
+    .then(usernameJson => {
+      console.log(usernameJson["users"])
+      temp = usernameJson["users"]
+    })
+    .catch(err => console.error('error:' + err));
+    // Loop through temp and creating a new array of "usernames" from temp[i]["username"]
+    // looop through temp and only returns the "display_name" from temp[i]["display_name"]    
+    for(let i = 0; i < temp.length; i++){
+      console.log("temp[i]: ", temp[i]);
+      allUsernames.push(temp[i]["username" as any] as string);
+    }
+  console.log("allUsernames: ", allUsernames);
+  } catch (err) {
+    console.error('error:' + err);
+  }
+  
+  return allUsernames;
+}
+
+// Function to get all the fids of the users who have clicked the button and then return the usernames
+async function getCurrentPlayers(){
+  // Call to redis to get the current players
+  const currFids = await client.sMembers(roundKey);
+  console.log("currFids: ", currFids);
+  // No users have clicked the button
+  if(currFids == null){
+    return [];
+  }
+  console.log("currFids: ", currFids);
+  const usernames = await getUsernames(currFids);
+  return usernames;
 }
 
 // Neynar
@@ -84,39 +144,64 @@ app.frame('/', (c) =>
   {
   // Other case is we're just getting started
   const { buttonValue, status } = c
-  
+
+
   return c.res({
-    action: '/time',
-    image: 
-    // 
-    (
-      <Box
-        grow
-        alignHorizontal="center"
-        alignVertical="center"
-        backgroundColor="background"
-        padding="32"
-      >
-        <VStack 
-        
-        gap="4"
-        >
-          <Heading>Swell Grab</Heading>
-          <Text align="left"color="text200" size="20">
-            Grab the pearl to win!
-          </Text>
-          <Text align="end" color="text200" size = "16">
-            Be careful, too many clicks can ruin the game
-          </Text>
-        </VStack>
-      </Box>
-    ),
-    intents: [
-      <Button value="grab">Click Me</Button>,
-      <Button value="checkGame" action= "/checkGame">Check Game</Button>,
-      status === 'response' && <Button.Reset>Reset</Button.Reset>,
-    ],
-  })
+  image: (
+    <Box>
+      <HStack >
+        <Image 
+            src= "/first_frame.png"
+            height="100%"
+          />
+          <Box alignContent='center' grow flexDirection='column' fontFamily='madimi' paddingTop="2">
+              <Spacer size="16" />
+              <Heading align="center" decoration='underline'>Don't Break the Ice</Heading>                
+              <Spacer size="16" />
+              <Text align="center">
+                Click the button to get on the ice
+              </Text>
+              <Text align="center">
+                Too many on the ice 
+              </Text>
+              <Text align="center">
+                and the game restarts
+              </Text>
+          </Box>
+      </HStack>
+    </Box>
+  ),
+  intents: [
+          <Button value="grab" action= "/joinTheIce">Click Me</Button>,
+          <Button value="checkGame" action= "/checkGame">Check Game</Button>, 
+        ],
+    })
+
+//   return c.res({
+//     image: (
+//       <Box>
+//         <HStack>
+//           <Image 
+//               src= "/first_frame.png"
+//               height="100%"
+//             />
+//           <Box>
+//             <Heading align="center" decoration='underline'>Don't Break the Ice</Heading>
+//             <Box alignContent='center' grow flexDirection='column' flexWrap='wrap' textWrap='wrap' paddingTop="20">
+//               <Text align="center" color="text200" size="20">
+//                 <Text align="center">Click the button to get on the ice</Text>
+//                 <Text wrap='balance'> Too many on the ice and the game </Text>
+//               </Text>
+//             </Box>
+//           </Box>
+//         </HStack>
+//       </Box> 
+//     ),
+//     intents: [
+//       <Button value="grab" action= "/joinTheIce">Click Me</Button>,
+//       <Button value="checkGame" action= "/checkGame">Check Game</Button>, 
+//     ],
+// })
 })
 
 // Frame to check the game state
@@ -125,53 +210,63 @@ app.frame('/checkGame', async(c) => {
   // Show the number of people who have clicked the button and the remaining time in human readable format 
   // TODO: Include usernames of people who have clicked the button
   // const roundEndTime = parseInt(await client.get("roundEndTime") as string, 10);
-  const currClicks = Number(await client.sCard(roundKey));
+  // get number of people who have clicked the button or 0 if no one has clickd the button
+  const potentialClickers =  Number(await client.sCard(roundKey));
+  const currClicks = potentialClickers != null ? potentialClickers : 0;
+  console.log("potentialClickers: ", potentialClickers);
+  // const currClicks = Number(await client.sCard(roundKey)) || 0;
   const targetClicks = Number(await client.get('targetClicks'));
   const roundEndTime = parseInt(await client.get("roundEndTime") as string, 10);
   const currTime = Date.now();
   const timeRemaining = roundEndTime - currTime;
   const timeRemainingFormatted = formatTime(timeRemaining);
+
+  // Get the usernasmes of the people who have clicked the button
+  let usernames = await getCurrentPlayers();
+  console.log("usernames: ", usernames);
   console.log("currClick: ", currClicks);
   console.log("targetClicks: ", targetClicks);
-
+  // TODO: Inlcude a way to show if the user that clicked the button is in the list of current players
   return c.res({
     image: (
       <Box>
-        <HStack>
+        <HStack >
           <Image 
               src= "/mid_game.png"
               height="100%"
             />
-            <Box>
-              <Heading>Game State</Heading>
-              {/* <Text align="left"color="text200" size="20">
-                Current Clicks: ${currClicks} </Text> */}
-                <Text align="center"color="text200" size="20">
-                  Target Clicks: {targetClicks} 
-                </Text>
-                <Text align="center" color="text200" size="20" font="default">
-                  Time Left: 
-                </Text>
+            <Box alignContent='center' grow flexDirection='column' fontFamily='madimi' paddingTop="2">
+                <Spacer size="16" />
+                <Heading align="center">Time Left</Heading>                
                 <Text align="center" color="text200" size="20">
                   {timeRemainingFormatted}
                 </Text>
-                {/* TODO: Curr Spots Taken */}
-                {/* <Text align="left"color="text200" size="20">
-                  Spots Taken: {currClicks} / { targetClicks }
-                </Text> */}
+                <Heading align="center">Spots Taken</Heading>                
+                <Text align="center"color="text200" size="20">
+                   {currClicks} / { targetClicks }
+                </Text>
+                <Box alignContent='center' grow flexDirection='column' fontFamily='madimi' paddingTop="4">
+                  <Heading align="center">Current Players</Heading>
+                  {usernames.map((username) => (
+                    <Text align="center" color="text200" size="14" font="default">
+                      {username}
+                    </Text>
+                ))}
+                </Box>
                 
-            </Box>            
+            </Box>
         </HStack>
       </Box>
     ),
     intents: [
       <Button value="checkGame" action= "/checkGame">Refresh</Button>,
+      <Button value="rules" action="/"> Rules </Button>,
     ]
   })
 });
 
 // Used to show the resulting time the button is pressed
-app.frame('/time', async(c) => {
+app.frame('/joinTheIce', async(c) => {
   // Do game checks to see if it is over or not
   // Case - Curr Time > End Time
   const roundEndTime = parseInt(await client.get("roundEndTime") as string, 10);
@@ -187,8 +282,7 @@ app.frame('/time', async(c) => {
     // Case - Game is over
     if(currClicks == targetClicks) {
       console.log("Case - Game over");
-      // TODO: Show the users who have clicked the button
-      // TOIDO: Consider using FrogUI to gen image
+      // TODO: Final Frames to show the users who have clicked the button
       return c.res({
         image: (
           <div style={{ color: 'white', display: 'flex', fontSize: 60 }}>
@@ -197,12 +291,15 @@ app.frame('/time', async(c) => {
         )
       })
     } else { 
+      // TODO: Update frame to be the same as the base click frame
       console.log("Case - Time expired, start new round");
       // Case - Round is over
       // Setup and start a new round
       initializeGameState();
-      // Include users clicks in the new round
-      if(c.frameData?.fid != null){
+      
+
+      // Add users to the list
+       if(c.frameData?.fid != null){
         try {
           const replies = await client.multi()
             .sAdd(roundKey, (c.frameData?.fid).toString())
@@ -214,12 +311,45 @@ app.frame('/time', async(c) => {
           throw err;
         }
       }
+      const timeRemainingFormatted = getFormattedTimeRemaining();
+
+      let usernames = await getCurrentPlayers();
+      // Remove
       return c.res({
         image: (
-          <div style={{ color: 'white', display: 'flex', fontSize: 60 }}>
-            { "Button pushed by " + c.frameData?.fid + " currently " + currClicks + "/" + targetClicks}
-          </div>
-        )
+          <Box>
+            <HStack >
+              <Image 
+                  src= "/mid_game.png"
+                  height="100%"
+                />
+                <Box alignContent='center' grow flexDirection='column' fontFamily='madimi' paddingTop="2">
+                    <Spacer size="16" />
+                    <Heading align="center">Time Left</Heading>                
+                    <Text align="center" color="text200" size="20">
+                      {timeRemainingFormatted}
+                    </Text>
+                    <Heading align="center">Spots Taken</Heading>                
+                    <Text align="center"color="text200" size="20">
+                       {currClicks} / { targetClicks }
+                    </Text>
+                    <Box alignContent='center' grow flexDirection='column' fontFamily='madimi' paddingTop="4">
+                      <Heading align="center">Current Players</Heading>
+                      {usernames.map((username) => (
+                        <Text align="center" color="text200" size="14" font="default">
+                          {username}
+                        </Text>
+                    ))}
+                    </Box>
+                    
+                </Box>
+            </HStack>
+          </Box>
+        ),
+        intents: [
+          <Button value="checkGame" action= "/checkGame">Refresh</Button>,
+          <Button value="rules" action="/"> Rules </Button>,
+        ]
       })
     }
   }
@@ -227,7 +357,14 @@ app.frame('/time', async(c) => {
   // Check if currClicks will exceed number of targetClicks
 
   // Need to include set cardinality so if the same user is being added
-  if(currClicks + 1 > targetClicks){
+  // TODO: Add a check to see if the user is already in the list
+
+  let inList = false;
+  if(c.frameData?.fid != null){
+    // Check if the user is already in the list of clickers 
+    inList = await client.sIsMember(roundKey, (c.frameData?.fid).toString());
+  }
+  if(currClicks + 1 > targetClicks && !inList){
     console.log("Case - Target num exceeded");
     // Start a new round
     initializeGameState();
@@ -250,67 +387,66 @@ app.frame('/time', async(c) => {
     })
   }
 
-  // Case - Nice, the game goes on
-  // Used for fetching Farcaster username
-  // const usernameUrl = 'https://api.neynar.com/v2/farcaster/user/bulk?fids=';
-  // TODO - api key from env
-  // const neynarOptions = {
-  //   method: 'GET',
-  //   headers: { accept: 'application/json', api_key: '14575066-A15B-4807-9508-F260E1B2223A' }
-  // };
-  
   // Case - Round is still active
-  
-  if(c.frameData?.fid != null && c.frameData?.address != null){
-    // Need to get the username of the person now
-    // Should regulary here
-  } else if(c.frameData?.fid != null){
+  if(c.frameData?.fid != null) { 
     // TODO: Consider disallowing a person if they break the game
     console.log("Adding a new user to click list", c.frameData?.fid);
+    let currFids = [];
+    currFids.push(c.frameData?.fid.toString());
+    const currUsername = await getUsernames(currFids);
+    console.log("currUsername: ", currUsername);
     try {
       const replies = await client.multi()
         .sAdd(roundKey, (c.frameData?.fid).toString())
+        // .sAdd((c.frameData?.fid).toString(), currUsername)
         .sCard(roundKey)
         .exec();
       updatedClicks = replies[1] as number;
     } catch (err) {
       // handle error
       throw err;
-    }
-    // await client.sAdd(roundKey, (c.frameData?.fid).toString());
-    // temp = await client.sCard(roundKey);
-    // Fetch the Username from Fid
-    // await fetch(usernameUrl + (c.frameData?.fid).toString(), neynarOptions)
-    //   .then(res => res.json())
-    //   .then(usernameJson => {
-    //     console.log(usernameJson["users"][0]["display_name"])
-    //     temp = usernameJson["users"][0]["display_name"]
-    //   })
-    //   .catch(err => console.error('error:' + err));
+    } 
+    const usernames = await getCurrentPlayers();
+    console.log("usernames: ", usernames);
   }
 
+  const timeRemainingFormatted = getFormattedTimeRemaining();
+  let usernames = await getCurrentPlayers();
   return c.res({
     image: (
       <Box>
-        <HStack>
+        <HStack >
           <Image 
               src= "/mid_game.png"
               height="100%"
             />
-            <Box>
-              <Heading>You're on the ice</Heading>
-              {/* <Text align="left"color="text200" size="20">
-                Current Clicks: ${currClicks} </Text> */}
-                <Text align="left"color="text200" size="20">
-                  Current Clicks: {updatedClicks} / {targetClicks}
+            <Box alignContent='center' grow flexDirection='column' fontFamily='madimi'>
+                <Spacer size="16" />
+                <Heading align="center">Time Left</Heading>                
+                <Text align="center" color="text200" size="20">
+                  {timeRemainingFormatted}
                 </Text>
-            </Box>            
+                <Heading align="center">Spots Taken</Heading>                
+                <Text align="center"color="text200" size="20">
+                   {currClicks} / { targetClicks }
+                </Text>
+                <Box alignContent='center' grow flexDirection='column' fontFamily='madimi'>
+                  <Heading align="center">Current Players</Heading>
+                  {usernames.map((username) => (
+                    <Text align="center" color="text200" size="14" font="default">
+                      {username}
+                    </Text>
+                ))}
+                </Box>
+                
+            </Box>
         </HStack>
       </Box>
-      // <div style={{ color: 'white', display: 'flex', fontSize: 60 }}>
-      //   { "Button pushed by " + c.frameData?.fid + " currently " + updatedClicks + "/" + targetClicks}
-      // </div>
-    )
+    ),
+    intents: [
+      <Button value="checkGame" action= "/checkGame">Refresh</Button>,
+      <Button value="rules" action="/"> Rules </Button>,
+    ]
   })
 });
 
