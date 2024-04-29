@@ -20,13 +20,28 @@ Thinking: this will create a social dynamic where it requires both coordination 
 - Competition and Coordination required
 - Randomized
 
+
+#### Based on Feedback
+Make the game repeatable v 1 time game
+- Action: Expires but keep track of winners consistently
+Varying reward for round, increasing as more rounds are lost
+- Action: Base reward, and factor to increase reward as more rounds are lost
+
+#### Open Questions
+- How to make it apparent that a round is won by a person?
+  - Winners page or a way to search if you won a round? 
+    - Set inclusion, have a tuple: Users -> 
+
 ## TODO
 - [X] Base game logic
 - [X] Round expires logic
 - [X] currClicks exceeds targetNum
 - [X] atomic Redis updates
 - [X] Hosted on Vercel
+
+Based on Feedba
 #### UI Updates
+Waiting on Swell update to image assets, focused on logic
 - [ ] Intro slide imagery
 - [X] Game State slide imagery
 - [ ] Final slide imagery for game over
@@ -35,6 +50,6 @@ Thinking: this will create a social dynamic where it requires both coordination 
 
 ### Nice to Haves
 - [ ] Update domain link to Swell, if possible
-- [ ] Cron job to automatically start round
 - [ ] Those who have broken game previously no longer eligible (prevent spam)
 - [ ] Usernames of people who have a spot in the round
+- [ ] Refactor logic for readability, seperate out utils

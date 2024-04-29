@@ -22,13 +22,19 @@ await client.connect();
 // Setup game constraints
 const gameDuration = 1 * 60 * 1000;
 const gameEndTime = Date.now() + gameDuration;
-const startTargetClicks = Math.floor(Math.random() * 10) + 1;
+// const startTargetClicks = Math.floor(Math.random() * 10) + 1;
+const startTargetClicks = 1;
 const roundKey = "round:clickers";
+const baseReward = 1;
+let roundReward = baseReward;
 
 client.multi()
   .del(roundKey)
   .set('roundEndTime', gameEndTime.toString())
   .set('targetClicks', startTargetClicks)
+  .set('baseReward', baseReward)
+  .set('roundReward', roundReward)
+  .hSet('winner', 'mane', 10)
   .exec();
 // End game setup
 
@@ -36,22 +42,16 @@ client.multi()
 // Used after time limit is broken or currClicks exceeds numClicks
 async function initializeGameState() {
   // const targetClicks = Math.floor(Math.random() * 10) + 1;
-  const targetClicks = 2;
-  // const roundEndTime = Date.now() + gameDuration;
-
+  const targetClicks = 2; 
   // Redis calls to set the state of the game
   client.multi()
     .set('targetClicks', targetClicks)
     .set('roundEndTime', Date.now() + gameDuration)
     .del(roundKey)
     .exec();
-  // await client.set('targetClicks', targetClicks);
-  // await client.set('roundEndTime', roundEndTime);
-  // await client.del(roundKey);
 }
 
 // Helpers
-
 // Function to format timeRemaining in human readable format, hours:minutes:seconds
 function formatTime(timeRemaining: number) {
   const hours = Math.floor(timeRemaining / (1000 * 60 * 60));
@@ -65,7 +65,6 @@ async function getFormattedTimeRemaining(){
   const currTime = Date.now();
   const timeRemaining = roundEndTime - currTime;
   const timeRemainingFormatted = formatTime(timeRemaining);
-
   return timeRemainingFormatted;
 }
 
@@ -133,7 +132,7 @@ export const app = new Frog({
   // hub: neynar({ apiKey: 'NEYNAR_FROG_FM' })
 })
 
-// Game Conditions
+// Game Vars
 // If X number of people click the button with 3 hour time frame
 // all people split the pot
 const randomNumber = Math.floor(Math.random() * 10) + 1;
@@ -144,9 +143,6 @@ app.frame('/', (c) =>
   {
   // Other case is we're just getting started
   const { buttonValue, status } = c
-  
-  
-
   return c.res({
   image: (
     <Box>
@@ -198,6 +194,7 @@ app.frame('/checkGame', async(c) => {
 
   // Get the usernasmes of the people who have clicked the button
   let usernames = await getCurrentPlayers();
+  let amountWon = await client.hGet('winner', 'mane');
   console.log("usernames: ", usernames);
   console.log("currClick: ", currClicks);
   console.log("targetClicks: ", targetClicks);
@@ -246,6 +243,7 @@ app.frame('/joinTheIce', async(c) => {
   // Check if the game is over
   const gameOver = await client.get('gameOver');
   if(gameOver == 'true') {
+    let usernames = await getCurrentPlayers();
     return c.res({
     image: (
       <Box>
