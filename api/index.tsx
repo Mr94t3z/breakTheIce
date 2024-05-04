@@ -20,7 +20,7 @@ const client = createClient({
 
 await client.connect();
 // Setup game constraints
-const gameDuration = 1 * 60 * 1000;
+const gameDuration = 1 * 60 * 100;
 const gameEndTime = Date.now() + gameDuration;
 // const startTargetClicks = Math.floor(Math.random() * 10) + 1;
 const startTargetClicks = 1;
@@ -35,12 +35,14 @@ client.multi()
   .set('targetClicks', startTargetClicks)
   .set('baseReward', baseReward)
   .set('roundReward', roundReward)
+  .zAdd('userScores', { score: 0, value: 'Swell'})
   .exec();
 // End game setup
 
 // Function to start a new round
 // Used after time limit is broken or currClicks exceeds numClicks
 async function initializeGameState(increasePot: boolean ) {
+  console.log("Resetting game state")
   // const targetClicks = Math.floor(Math.random() * 10) + 1;
   const targetClicks = 1; 
   // Redis calls to set the state of the game
@@ -55,6 +57,8 @@ async function initializeGameState(increasePot: boolean ) {
     .set('roundReward', roundReward)
     .del(roundKey)
     .exec();
+
+  console.log("Finished resetting");
 }
 
 // Helpers
@@ -87,8 +91,10 @@ async function getUsernames(fids: string[]) {
   };
   let temp: any = [];
   let allUsernames = [];
+
+  console.log("about to get the username");
+  // Fetch the Username from Fid
   try{
-    // Fetch the Username from Fid
     await fetch(usernameUrl + fidsString, neynarOptions)
     .then(res => res.json())
     .then(usernameJson => {
@@ -106,6 +112,8 @@ async function getUsernames(fids: string[]) {
   } catch (err) {
     console.error('error:' + err);
   }
+
+  console.log("After getting the usernames");
   
   return allUsernames;
 }
@@ -130,13 +138,25 @@ async function getCurrentPlayers(){
 
 async function updateWinners(){  
   // We update the winners map
+  console.log("Top of update winners");
   const currFids = await client.sMembers(roundKey);
-  const roundReward = await client.get('roundReward')
+  console.log("after currFids");
+  const roundReward = await client.get('roundReward');
   // Loop through the users 
   // Check if they already won
   // If so need to get their increment by the round winning 
+  console.log("UpdateWinners - incrementing vals");
   for(let i in currFids){
-    await client.HINCRBY('user_scores', currFids[i], Number(roundReward))
+    await client.zIncrBy('userScores', Number(roundReward), currFids[i] )
+  }
+}
+
+async function getTop10(){
+  console.log("Top of getTop");
+  const topPlayers = await client.xRevRange('userScores', '-', '+');
+  console.log("Leaderboard:");
+  for(let i = 0; i < topPlayers.length; i += 2) {
+      console.log(`${topPlayers[i]}: ${topPlayers[i + 1]}`);
   }
 }
 
@@ -193,13 +213,13 @@ app.frame('/', (c) =>
   intents: [
           <Button value="grab" action= "/joinTheIce">Click Me</Button>,
           <Button value="checkGame" action= "/checkGame">Check Game</Button>, 
+          <Button value="leaderboard" action= "/leaderboard">Leaderboard</Button>
         ],
     })
 })
 
 // Frame to check the game state
 app.frame('/checkGame', async(c) => {
-
   // Show the number of people who have clicked the button and the remaining time in human readable format 
   // TODO: Include usernames of people who have clicked the button
   // const roundEndTime = parseInt(await client.get("roundEndTime") as string, 10);
@@ -514,6 +534,25 @@ app.frame('/joinTheIce', async(c) => {
   })
 });
 
+app.frame('/leaderboard', async(c) => {
+  await getTop10();
+  return c.res({
+    image: (
+      <Box>
+
+          <Image 
+              src= "/mid_game.png"
+              height="100%"
+            />
+            <Box alignContent='center' grow flexDirection='column' fontFamily='madimi' paddingTop="2">
+              <Heading>
+                  Leaderboard
+              </Heading>  
+            </Box>
+      </Box>
+    )
+  })
+});
 
 
 // Devtools

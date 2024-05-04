@@ -39,17 +39,23 @@ Varying reward for round, increasing as more rounds are lost
 - [X] atomic Redis updates
 - [X] Hosted on Vercel
 
-Based on Feedba
+Based on Feedback
 #### UI Updates
 Waiting on Swell update to image assets, focused on logic
 - [ ] Intro slide imagery
 - [X] Game State slide imagery
 - [ ] Final slide imagery for game over
 - [ ] Convert HStack to Columns
-- [ ] Update fonts to match Swell
 
 ### Nice to Haves
 - [ ] Update domain link to Swell, if possible
 - [ ] Those who have broken game previously no longer eligible (prevent spam)
 - [ ] Usernames of people who have a spot in the round
 - [ ] Refactor logic for readability, seperate out utils
+
+
+Fri
+- Something off in the leaderboard logic
+  - specifically in the getTop10, something with the key is off
+
+  close
