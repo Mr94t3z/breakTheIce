@@ -9,7 +9,7 @@
     "deploy-prod": "vercel --prod"
   },
   "dependencies": {
-    "frog": "latest",
+    "frog": "^0.9.0",
     "hono": "^4",
     "redis": "^4.6.13"
   },

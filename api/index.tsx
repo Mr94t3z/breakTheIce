@@ -27,6 +27,7 @@ const startTargetClicks = 1;
 const roundKey = "round:clickers";
 const baseReward = 1;
 let roundReward = baseReward;
+let potMultiplier = 1.1;
 
 client.multi()
   .del(roundKey)
@@ -34,19 +35,24 @@ client.multi()
   .set('targetClicks', startTargetClicks)
   .set('baseReward', baseReward)
   .set('roundReward', roundReward)
-  .hSet('winner', 'mane', 10)
   .exec();
 // End game setup
 
 // Function to start a new round
 // Used after time limit is broken or currClicks exceeds numClicks
-async function initializeGameState() {
+async function initializeGameState(increasePot: boolean ) {
   // const targetClicks = Math.floor(Math.random() * 10) + 1;
-  const targetClicks = 2; 
+  const targetClicks = 1; 
   // Redis calls to set the state of the game
+  if(increasePot){
+    // 1.2 * 1.1 instead I just want 10
+    // 10% increase but to 2 sig figs
+    roundReward = parseFloat((roundReward * potMultiplier).toString()).toFixed(2) as any;
+  }
   client.multi()
     .set('targetClicks', targetClicks)
     .set('roundEndTime', Date.now() + gameDuration)
+    .set('roundReward', roundReward)
     .del(roundKey)
     .exec();
 }
@@ -106,6 +112,7 @@ async function getUsernames(fids: string[]) {
 
 // Function to get all the fids of the users who have clicked the button and then return the usernames
 async function getCurrentPlayers(){
+  console.log("Calling getCurrentPlayers");
   // Call to redis to get the current players
   const currFids = await client.sMembers(roundKey);
   console.log("currFids: ", currFids);
@@ -114,8 +121,23 @@ async function getCurrentPlayers(){
     return [];
   }
   console.log("currFids: ", currFids);
+  // We'll have to loop and update all the individual users mappings of their rewards
+
   const usernames = await getUsernames(currFids);
+  console.log("After getting usernames");
   return usernames;
+}
+
+async function updateWinners(){  
+  // We update the winners map
+  const currFids = await client.sMembers(roundKey);
+  const roundReward = await client.get('roundReward')
+  // Loop through the users 
+  // Check if they already won
+  // If so need to get their increment by the round winning 
+  for(let i in currFids){
+    await client.HINCRBY('user_scores', currFids[i], Number(roundReward))
+  }
 }
 
 // Neynar
@@ -192,9 +214,10 @@ app.frame('/checkGame', async(c) => {
   const timeRemaining = roundEndTime - currTime;
   const timeRemainingFormatted = formatTime(timeRemaining);
 
+  const roundReward = Number(await client.get('roundReward'))
+
   // Get the usernasmes of the people who have clicked the button
   let usernames = await getCurrentPlayers();
-  let amountWon = await client.hGet('winner', 'mane');
   console.log("usernames: ", usernames);
   console.log("currClick: ", currClicks);
   console.log("targetClicks: ", targetClicks);
@@ -212,6 +235,10 @@ app.frame('/checkGame', async(c) => {
                 <Heading align="center">Time Left</Heading>                
                 <Text align="center" color="text200" size="20">
                   {timeRemainingFormatted}
+                </Text>
+                <Heading align="center">Reward</Heading>                
+                <Text align="center" color="text200" size="20">
+                  {roundReward}
                 </Text>
                 <Heading align="center">Spots Taken</Heading>                
                 <Text align="center"color="text200" size="20">
@@ -241,37 +268,37 @@ app.frame('/checkGame', async(c) => {
 app.frame('/joinTheIce', async(c) => {
   // Check if the game is over
   // Check if the game is over
-  const gameOver = await client.get('gameOver');
-  if(gameOver == 'true') {
-    let usernames = await getCurrentPlayers();
-    return c.res({
-    image: (
-      <Box>
-        <HStack >
-          <Image 
-              src= "/mid_game.png"
-              height="100%"
-            />
-            <Box alignContent='center' grow flexDirection='column' fontFamily='madimi' paddingTop="2">
-                <Spacer size="16" />
-                <Box alignContent='center' grow flexDirection='column' fontFamily='madimi' paddingTop="4">
-                  <Heading align="center">Winners</Heading>
-                  {usernames.map((username) => (
-                    <Text align="center" color="text200" size="14" font="default">
-                      {username}
-                    </Text>
-                ))}
-                </Box>
-            </Box>
-        </HStack>
-      </Box>
-    ),
-      intents: [
-        <Button value="checkGame" action= "/checkGame">Refresh</Button>,
-        <Button value="rules" action="/"> Rules </Button>,
-      ]
-    })
-  } 
+  // const gameOver = await client.get('gameOver');
+  // if(gameOver == 'true') {
+  //   let usernames = await getCurrentPlayers();
+  //   return c.res({
+  //   image: (
+  //     <Box>
+  //       <HStack >
+  //         <Image 
+  //             src= "/mid_game.png"
+  //             height="100%"
+  //           />
+  //           <Box alignContent='center' grow flexDirection='column' fontFamily='madimi' paddingTop="2">
+  //               <Spacer size="16" />
+  //               <Box alignContent='center' grow flexDirection='column' fontFamily='madimi' paddingTop="4">
+  //                 <Heading align="center">Winners</Heading>
+  //                 {usernames.map((username) => (
+  //                   <Text align="center" color="text200" size="14" font="default">
+  //                     {username}
+  //                   </Text>
+  //               ))}
+  //               </Box>
+  //           </Box>
+  //       </HStack>
+  //     </Box>
+  //   ),
+  //     intents: [
+  //       <Button value="checkGame" action= "/checkGame">Refresh</Button>,
+  //       <Button value="rules" action="/"> Rules </Button>,
+  //     ]
+  //   })
+  // } 
   // Do game checks to see if it is over or not
   // Case - Curr Time > End Time
   const roundEndTime = parseInt(await client.get("roundEndTime") as string, 10);
@@ -284,14 +311,18 @@ app.frame('/joinTheIce', async(c) => {
   // Case - round is over already
   // Check to see if the game is over or just the round
   if(Date.now() > roundEndTime){
-    // Case - Game is over
+    // Case - Round won
     if(currClicks == targetClicks) {
-      // set a variable to true to show the game is over
-      await client.set('gameOver', 'true');
 
-      console.log("Case - Game over");
+      console.log("Case - Round Won");
       // TODO: Final Frames to show the users who have clicked the button
-      let usernames = await getCurrentPlayers();
+      // Update those who have won the game
+      updateWinners();
+      const roundWinners = await getCurrentPlayers();
+      console.log("Winners: ", roundWinners)
+      // Pot should not increase
+      // Reset the game
+      initializeGameState(false);
       return c.res({
     image: (
       <Box>
@@ -303,10 +334,10 @@ app.frame('/joinTheIce', async(c) => {
             <Box alignContent='center' grow flexDirection='column' fontFamily='madimi' paddingTop="2">
                 <Spacer size="16" />
                 <Box alignContent='center' grow flexDirection='column' fontFamily='madimi' paddingTop="4">
-                  <Heading align="center">Winners</Heading>
-                  {usernames.map((username) => (
+                  <Heading align="center">Round Winners</Heading>
+                  {roundWinners.map((roundWinners) => (
                     <Text align="center" color="text200" size="14" font="default">
-                      {username}
+                      {roundWinners}
                     </Text>
                 ))}
                 </Box>
@@ -324,7 +355,8 @@ app.frame('/joinTheIce', async(c) => {
       console.log("Case - Time expired, start new round");
       // Case - Round is over
       // Setup and start a new round
-      initializeGameState();
+      // Increase the amount to be won
+      initializeGameState(true);
       
 
       // Add users to the list
@@ -396,7 +428,7 @@ app.frame('/joinTheIce', async(c) => {
   if(currClicks + 1 > targetClicks && !inList){
     console.log("Case - Target num exceeded");
     // Start a new round
-    initializeGameState();
+    initializeGameState(true);
     return c.res({
       image: (
         <Box alignContent='center'>
@@ -412,7 +444,10 @@ app.frame('/joinTheIce', async(c) => {
           </HStack>
           
         </Box>
-      )
+      ),
+      intents: [
+        <Button value="rules" action="/"> Rules </Button>,
+      ]
     })
   }
 
