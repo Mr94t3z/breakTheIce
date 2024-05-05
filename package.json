@@ -11,7 +11,8 @@
   "dependencies": {
     "frog": "^0.9.0",
     "hono": "^4",
-    "redis": "^4.6.13"
+    "redis": "^4.6.13",
+    "satori": "^0.10.13"
   },
   "devDependencies": {
     "tsx": "^4.7.1",

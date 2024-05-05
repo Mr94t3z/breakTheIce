@@ -4,6 +4,8 @@ import { handle } from 'frog/vercel';
 import { devtools } from 'frog/dev';
 import { serveStatic } from 'frog/serve-static';
 
+import satori from 'satori';
+
 // Redis
 import { createClient } from 'redis';
 // Frog UI
@@ -29,6 +31,9 @@ const baseReward = 1;
 let roundReward = baseReward;
 let potMultiplier = 1.1;
 
+// TODO: Remove
+await client.del('userScores');
+
 client.multi()
   .del(roundKey)
   .set('roundEndTime', gameEndTime.toString())
@@ -51,12 +56,17 @@ async function initializeGameState(increasePot: boolean ) {
     // 10% increase but to 2 sig figs
     roundReward = parseFloat((roundReward * potMultiplier).toString()).toFixed(2) as any;
   }
-  client.multi()
+  try{
+    client.multi()
     .set('targetClicks', targetClicks)
     .set('roundEndTime', Date.now() + gameDuration)
     .set('roundReward', roundReward)
     .del(roundKey)
     .exec();
+  } catch(err){
+    console.error("Error in resetting game: ", err)
+  }
+  
 
   console.log("Finished resetting");
 }
@@ -98,14 +108,12 @@ async function getUsernames(fids: string[]) {
     await fetch(usernameUrl + fidsString, neynarOptions)
     .then(res => res.json())
     .then(usernameJson => {
-      console.log(usernameJson["users"])
       temp = usernameJson["users"]
     })
     .catch(err => console.error('error:' + err));
     // Loop through temp and creating a new array of "usernames" from temp[i]["username"]
     // looop through temp and only returns the "display_name" from temp[i]["display_name"]    
     for(let i = 0; i < temp.length; i++){
-      console.log("temp[i]: ", temp[i]);
       allUsernames.push(temp[i]["username" as any] as string);
     }
   console.log("allUsernames: ", allUsernames);
@@ -116,6 +124,37 @@ async function getUsernames(fids: string[]) {
   console.log("After getting the usernames");
   
   return allUsernames;
+}
+
+async function getUsername(fid: string){
+  // join the fids with a comma
+  console.log("Getting the username of: ", fid);
+  const usernameUrl = 'https://api.neynar.com/v2/farcaster/user/bulk?fids=';
+  // TODO - api key from env
+  const neynarOptions = {
+    method: 'GET',
+    headers: { accept: 'application/json', api_key: '14575066-A15B-4807-9508-F260E1B2223A' }
+  };
+  let temp;
+  let userNameRes;
+  // Fetch the Username from Fid
+  console.log("before try");
+  try{
+    await fetch(usernameUrl + fid, neynarOptions)
+    .then(res => res.json())
+    .then(usernameJson => {
+      temp = usernameJson["users"]
+    })
+    .catch(err => console.error('Fetching username error:' + err));
+    // Loop through temp and creating a new array of "usernames" from temp[i]["username"]
+    if(temp != undefined){
+      userNameRes = temp["username"] as any;
+    }
+  } catch (err) {
+    console.error('Fetching username error:' + err);
+  }
+
+  return userNameRes;
 }
 
 // Function to get all the fids of the users who have clicked the button and then return the usernames
@@ -145,19 +184,26 @@ async function updateWinners(){
   // Loop through the users 
   // Check if they already won
   // If so need to get their increment by the round winning 
-  console.log("UpdateWinners - incrementing vals");
+  console.log("UpdateWinners - incrementing vals", currFids);
   for(let i in currFids){
-    await client.zIncrBy('userScores', Number(roundReward), currFids[i] )
+    let currUsername = await getUsernames([currFids[i]]);
+    console.log("zAdd score: ", roundReward);
+    console.log("zAdd value: ", currUsername)
+    let res = await client.zIncrBy('userScores', Number(roundReward), currUsername.toString());
+    console.log("incrementing this fid: ", res)
   }
 }
 
 async function getTop10(){
   console.log("Top of getTop");
-  const topPlayers = await client.xRevRange('userScores', '-', '+');
-  console.log("Leaderboard:");
-  for(let i = 0; i < topPlayers.length; i += 2) {
-      console.log(`${topPlayers[i]}: ${topPlayers[i + 1]}`);
+  const clienType = await client.type('userScores');
+  console.log("Type: ", clienType)
+  const topPlayers = await client.zRangeWithScores('userScores', 0, 9, { REV: true});
+  console.log("TopPlayers: ", topPlayers);
+  for(let player of topPlayers){
+    console.log(`Username: ${player.value}, Score: ${player.score}`)
   }
+  return topPlayers;
 }
 
 // Neynar
@@ -184,6 +230,7 @@ app.use('/*', serveStatic({ root: './public' }))
 app.frame('/', (c) =>
   {
   // Other case is we're just getting started
+
   const { buttonValue, status } = c
   return c.res({
   image: (
@@ -337,12 +384,13 @@ app.frame('/joinTheIce', async(c) => {
       console.log("Case - Round Won");
       // TODO: Final Frames to show the users who have clicked the button
       // Update those who have won the game
-      updateWinners();
+      await updateWinners();
       const roundWinners = await getCurrentPlayers();
       console.log("Winners: ", roundWinners)
       // Pot should not increase
       // Reset the game
       initializeGameState(false);
+      console.log("After init game state, joinIce")
       return c.res({
     image: (
       <Box>
@@ -377,7 +425,7 @@ app.frame('/joinTheIce', async(c) => {
       // Setup and start a new round
       // Increase the amount to be won
       initializeGameState(true);
-      
+      console.log("After init game state, time expired")
 
       // Add users to the list
        if(c.frameData?.fid != null){
@@ -449,6 +497,7 @@ app.frame('/joinTheIce', async(c) => {
     console.log("Case - Target num exceeded");
     // Start a new round
     initializeGameState(true);
+    console.log("after init game, target num exceeded");
     return c.res({
       image: (
         <Box alignContent='center'>
@@ -534,25 +583,30 @@ app.frame('/joinTheIce', async(c) => {
   })
 });
 
-app.frame('/leaderboard', async(c) => {
-  await getTop10();
-  return c.res({
-    image: (
-      <Box>
 
-          <Image 
-              src= "/mid_game.png"
-              height="100%"
-            />
-            <Box alignContent='center' grow flexDirection='column' fontFamily='madimi' paddingTop="2">
-              <Heading>
-                  Leaderboard
-              </Heading>  
-            </Box>
-      </Box>
-    )
-  })
+app.frame('/leaderboard', async (c) => {
+  let top10 = await getTop10(); // Assuming getTop10 returns [{ value: 'farcaster', score: 2.1 }, ...]
+
+  return c.res({
+      image: (
+          <Box flexDirection="row" height="100%">
+              <Box flex={3}>
+                  <Image src="/mid_game.png" width="100%" height="100%" />
+              </Box>
+              <Box flex={1} alignContent="center" flexDirection="column" justifyContent="center" fontFamily="madimi" padding="2">
+                  <Heading align="center">Leaderboard</Heading>
+                  {top10.map(player => (
+                      <Box flexDirection="row" justifyContent="space-between" paddingBottom={"1"}>
+                          <Text>{player.value}</Text>
+                          <Text>{player.score.toFixed(2)}</Text>
+                      </Box>
+                  ))}
+              </Box>
+          </Box>
+      ),
+  });
 });
+
 
 
 // Devtools
