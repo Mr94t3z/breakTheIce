@@ -28,13 +28,6 @@ export const {
                 weight: 400,
             },
         ],
-        midami:  [
-            {
-                name: "Space Mono",
-                source: "google",
-                weight: 400,
-            },
-        ],
     },
     // Box: {
     //         alignContent: "center",
