@@ -9,20 +9,27 @@ import { createClient } from 'redis';
 // Frog UI
 import { Box, Heading, Text, VStack, Image, vars, HStack, Columns, Divider, Spacer,  } from './ui.js';
 
+import dotenv from 'dotenv';
+
+// Load environment variables from .env file
+dotenv.config();
+
 // Update with redis to use functons or can do dummy data
 const client = createClient({
-  // password: {Your PW},
+  password: process.env.REDIS_PASSWORD,
   socket: {
-      // host: {Your host},
-      // port: {TY}
+    host: process.env.REDIS_HOST,
+    port: parseInt(process.env.REDIS_PORT || '', 10)
   }
 });
+
 
 client.on('error', err => console.log('Redis Client Error', err));
 
 await client.connect();
 // Setup game constraints
-const gameDuration = 1 * 60 * 100;
+const gameDuration = 3 * 60 * 60 * 1000; // 3 hours in milliseconds
+// const gameDuration = 1 * 60 * 100;
 const gameEndTime = Date.now() + gameDuration;
 // const startTargetClicks = Math.floor(Math.random() * 10) + 1;
 const startTargetClicks = 1;
@@ -73,10 +80,10 @@ async function initializeGameState(increasePot: boolean ) {
 
 // Helpers
 // Function to format timeRemaining in human readable format, hours:minutes:seconds
-function formatTime(timeRemaining: number) {
-  const hours = Math.floor(timeRemaining / (1000 * 60 * 60));
-  const minutes = Math.floor((timeRemaining % (1000 * 60 * 60)) / (1000 * 60));
-  const seconds = Math.floor((timeRemaining % (1000 * 60)) / 1000);
+function formatTime(timeRemaining : number) {
+  let hours = Math.floor(timeRemaining / (1000 * 60 * 60));
+  let minutes = Math.floor((timeRemaining % (1000 * 60 * 60)) / (1000 * 60));
+  let seconds = Math.floor((timeRemaining % (1000 * 60)) / 1000);
   return `${hours}hrs ${minutes}mins ${seconds}secs`;
 }
 
@@ -97,7 +104,7 @@ async function getUsernames(fids: string[]) {
   // TODO - api key from env
   const neynarOptions = {
     method: 'GET',
-    headers: { accept: 'application/json', api_key: '14575066-A15B-4807-9508-F260E1B2223A' }
+    headers: { accept: 'application/json', api_key: process.env.NEYNAR_API_KEY || 'NEYNAR_API_DOCS' }
   };
   let temp: any = [];
   let allUsernames = [];
@@ -195,44 +202,61 @@ const randomNumber = Math.floor(Math.random() * 10) + 1;
 
 app.use('/*', serveStatic({ root: './public' }))
 // Default Frame
-app.frame('/', (c) =>
-  {
-  // Other case is we're just getting started
+app.frame('/', async (c) => {
+  const potentialClickers = Number(await client.sCard(roundKey));
+  const currClicks = potentialClickers != null ? potentialClickers : 0;
 
-  const { buttonValue, status } = c
   return c.res({
-  image: (
-    <Box>
-      <HStack >
-        <Image 
-            src= "/first_frame.png"
+    image: (
+      <Box>
+        <HStack>
+          {currClicks < 10 ? (
+          <Image 
+            src="/first_frame.png"
             height="100%"
           />
+          ) : (
+          <Image 
+            src="/cracking_ice.png"
+            height="100%"
+          />
+          )}
           <Box alignContent='center' grow flexDirection='column' fontFamily='madimi' paddingTop="2">
-              <Spacer size="16" />
-              <Heading align="center" decoration='underline'>Don't Break the Ice</Heading>                
-              <Spacer size="16" />
+          <Spacer size="16" />
+          {currClicks < 10 ? (
+          <Heading align="center" decoration='underline'>Don't Break the Ice</Heading>
+          ) : (
+          <Heading align="center" decoration='underline'>The Ice is Broken!</Heading>
+          )}
+          <Spacer size="16" />
+            {currClicks < 10 ? (
               <Text align="center">
                 Click the button to get on the ice
               </Text>
-              <Text align="center">
-                Too many on the ice 
-              </Text>
-              <Text align="center">
-                and the game restarts
-              </Text>
+            ) : (
+              <VStack>
+                <Text align="center">
+                  Too many on the ice 
+                </Text>
+                <Text align="center">
+                  and the game restarts
+                </Text>
+              </VStack>
+            )}
           </Box>
-      </HStack>
-    </Box>
-  ),
-  intents: [
-          <Button value="grab" action= "/joinTheIce">Click Me</Button>,
-          <Button value="checkGame" action= "/checkGame">Check Game</Button>, 
-          <Button value="leaderboard" action= "/leaderboard">Leaderboard</Button>,
-          <Button value="rewards" action="/rewards">Check Rewards</Button>
-        ],
-    })
-})
+        </HStack>
+      </Box>
+    ),
+    intents: [
+      <Button value="grab" action="/joinTheIce">Click Me</Button>,
+      <Button value="checkGame" action="/checkGame">Check Game</Button>, 
+      <Button value="leaderboard" action="/leaderboard">Leaderboard</Button>,
+      <Button value="rewards" action="/rewards">Check Rewards</Button>
+    ],
+  })
+});
+
+
 
 // Frame to check the game state
 app.frame('/checkGame', async(c) => {
@@ -261,6 +285,60 @@ app.frame('/checkGame', async(c) => {
   return c.res({
     image: (
       <Box>
+        <HStack>
+          <Image 
+            src="/mid_game.png"
+            height="100%"
+          />
+          <Box alignContent='center' grow flexDirection='column' fontFamily='madimi' paddingTop="2">
+            <Spacer size="16" />
+            <Heading align="center">Time Left</Heading>                
+            <Text align="center" color="text200" size="20">
+              {timeRemaining <= 0 ? '0hrs 0mins 0secs' : timeRemainingFormatted}
+            </Text>
+            <Heading align="center">Reward</Heading>                
+            <Text align="center" color="text200" size="20">
+              {roundReward}
+            </Text>
+            <Heading align="center">Spots Taken</Heading>                
+            <Text align="center" color="text200" size="20">
+               {currClicks} / {targetClicks}
+            </Text>
+            <Box alignContent='center' grow flexDirection='column' fontFamily='madimi' paddingTop="4">
+              <Heading align="center">On the Ice</Heading>
+              {usernames.length > 0 ? (
+                usernames.map((username) => (
+                  <Text align="center" color="text200" size="14" font="default">
+                    {username}, you're on the ice
+                  </Text>
+                ))
+              ) : (
+                <Text align="center" color="text200" size="14" font="default">
+                  No users currently on the ice.
+                </Text>
+              )}
+            </Box>
+          </Box>
+        </HStack>
+      </Box>
+    ),
+    intents: [
+      <Button value="checkGame" action="/checkGame">Refresh</Button>,
+      <Button value="rules" action="/">Rules</Button>,
+    ]
+  });
+});
+
+
+// Used to show the resulting time the button is pressed
+app.frame('/joinTheIce', async(c) => {
+  // Check if the game is over
+  const gameOver = await client.get('gameOver');
+  if(gameOver == 'true') {
+    let usernames = await getCurrentPlayers();
+    return c.res({
+    image: (
+      <Box>
         <HStack >
           <Image 
               src= "/mid_game.png"
@@ -268,73 +346,24 @@ app.frame('/checkGame', async(c) => {
             />
             <Box alignContent='center' grow flexDirection='column' fontFamily='madimi' paddingTop="2">
                 <Spacer size="16" />
-                <Heading align="center">Time Left</Heading>                
-                <Text align="center" color="text200" size="20">
-                  {timeRemainingFormatted}
-                </Text>
-                <Heading align="center">Reward</Heading>                
-                <Text align="center" color="text200" size="20">
-                  {roundReward}
-                </Text>
-                <Heading align="center">Spots Taken</Heading>                
-                <Text align="center"color="text200" size="20">
-                   {currClicks} / { targetClicks }
-                </Text>
                 <Box alignContent='center' grow flexDirection='column' fontFamily='madimi' paddingTop="4">
-                  <Heading align="center">On the Ice</Heading>
+                  <Heading align="center">Winners</Heading>
                   {usernames.map((username) => (
                     <Text align="center" color="text200" size="14" font="default">
                       {username}
                     </Text>
                 ))}
                 </Box>
-                
             </Box>
         </HStack>
       </Box>
     ),
-    intents: [
-      <Button value="checkGame" action= "/checkGame">Refresh</Button>,
-      <Button value="rules" action="/"> Rules </Button>,
-    ]
-  })
-});
-
-// Used to show the resulting time the button is pressed
-app.frame('/joinTheIce', async(c) => {
-  // Check if the game is over
-  // Check if the game is over
-  // const gameOver = await client.get('gameOver');
-  // if(gameOver == 'true') {
-  //   let usernames = await getCurrentPlayers();
-  //   return c.res({
-  //   image: (
-  //     <Box>
-  //       <HStack >
-  //         <Image 
-  //             src= "/mid_game.png"
-  //             height="100%"
-  //           />
-  //           <Box alignContent='center' grow flexDirection='column' fontFamily='madimi' paddingTop="2">
-  //               <Spacer size="16" />
-  //               <Box alignContent='center' grow flexDirection='column' fontFamily='madimi' paddingTop="4">
-  //                 <Heading align="center">Winners</Heading>
-  //                 {usernames.map((username) => (
-  //                   <Text align="center" color="text200" size="14" font="default">
-  //                     {username}
-  //                   </Text>
-  //               ))}
-  //               </Box>
-  //           </Box>
-  //       </HStack>
-  //     </Box>
-  //   ),
-  //     intents: [
-  //       <Button value="checkGame" action= "/checkGame">Refresh</Button>,
-  //       <Button value="rules" action="/"> Rules </Button>,
-  //     ]
-  //   })
-  // } 
+      intents: [
+        <Button value="checkGame" action= "/checkGame">Refresh</Button>,
+        <Button value="rules" action="/"> Rules </Button>,
+      ]
+    })
+  } 
   // Do game checks to see if it is over or not
   // Case - Curr Time > End Time
   const roundEndTime = parseInt(await client.get("roundEndTime") as string, 10);
@@ -560,9 +589,10 @@ app.frame('/leaderboard', async (c) => {
       image: (
           <Box flexDirection="row" height="100%">
             <HStack>
-              <Box>
-                  <Image src="/mid_game.png" height="100%" />
-              </Box>
+            <Image 
+              src= "/mid_game.png"
+              height="100%"
+            />
               <Box alignContent="center" flexDirection="column" justifyContent="center" fontFamily="madimi" padding="10">
                   <Heading align="center">Leaderboard</Heading>
                   {top10.map(player => (
@@ -583,13 +613,81 @@ app.frame('/leaderboard', async (c) => {
 
 app.frame('/rewards', async(c) => {
   // Display the username and reward for the current user
-  let userScore = await client.zScore('userScores', 'test');
+  const { frameData } = c;
+  const { fid } = frameData as unknown as { buttonIndex?: number; fid?: string };
+
+  const responseUserData = await fetch(`https://api.neynar.com/v2/farcaster/user/bulk?fids=${fid}`, {
+    method: 'GET',
+    headers: {
+      'accept': 'application/json',
+      'api_key': process.env.NEYNAR_API_KEY || 'NEYNAR_API_DOCS',
+    },
+  });
+
+  const data = await responseUserData.json();
+  const userData = data.users[0];
+
+  const usernames = userData.username;
+  
+  // let userScore = 0;
+  // try {
+  //   userScore = (await client.zScore("userScores", usernames));
+  // } catch (e) {}
+
+  let userScore = await client.zScore('userScores', usernames);
+
+  // console.log("userScore: ", userScore);
   // If no rewards show one screen
   // If there are rewards show a different screen
-  if(userScore != null){
+  if(userScore != null && userScore > 0){
     // Show them current reward
-
+    return c.res({
+      image: (
+        <Box>
+          <HStack>
+            <Image 
+              src="/first_frame.png"
+              height="100%"
+            />
+            <Box alignContent='center' grow flexDirection='column' fontFamily='madimi' paddingTop="2">
+            <Spacer size="16" />
+            <Heading align="center" >Your Reward</Heading>
+            <Spacer size="16" />
+                <Text align="center">
+                 {userScore}
+                </Text>
+            </Box>
+          </HStack>
+        </Box>
+      ),
+      intents: [
+        <Button action= "/">Rules</Button>
+      ]
+    });
   }
+  return c.res({
+    image: (
+      <Box>
+        <HStack>
+          <Image 
+            src="/first_frame.png"
+            height="100%"
+          />
+          <Box alignContent='center' grow flexDirection='column' fontFamily='madimi' paddingTop="2">
+          <Spacer size="16" />
+          <Heading align="center" >Your Reward</Heading>
+          <Spacer size="16" />
+              <Text align="center">
+                0
+              </Text>
+          </Box>
+        </HStack>
+      </Box>
+    ),
+    intents: [
+      <Button action= "/">Rules</Button>
+    ]
+  });
 });
 // Devtools
 // app.use("/", fdk.analyticsMiddleware({ frameId: "Testing", customId: "Test id"}));
