@@ -9,20 +9,12 @@ import { createClient } from 'redis';
 // Frog UI
 import { Box, Heading, Text, VStack, Image, vars, HStack, Columns, Divider, Spacer,  } from './ui.js';
 
-// Update with redis to use funcitons or can do dummy data
-// const client = createClient({
-//   // password: {Your PW},
-//   socket: {
-//       // host: {Your host},
-//       // port: {TY}
-//   }
-// });
-
+// Update with redis to use functons or can do dummy data
 const client = createClient({
-  password: 'nZUpPOLpXmmeQBTSUL5X3ByDwlPgXE9Y',
+  // password: {Your PW},
   socket: {
-      host: 'redis-13192.c326.us-east-1-3.ec2.cloud.redislabs.com',
-      port: 13192
+      // host: {Your host},
+      // port: {TY}
   }
 });
 
@@ -289,7 +281,7 @@ app.frame('/checkGame', async(c) => {
                    {currClicks} / { targetClicks }
                 </Text>
                 <Box alignContent='center' grow flexDirection='column' fontFamily='madimi' paddingTop="4">
-                  <Heading align="center">Current Players</Heading>
+                  <Heading align="center">On the Ice</Heading>
                   {usernames.map((username) => (
                     <Text align="center" color="text200" size="14" font="default">
                       {username}
