@@ -42,6 +42,8 @@ Include a custom font, using the font family Madimi
 - must be able to have up to 10 usernames in the "On the Ice"
 - Nicely Formatted Countdown timer
   - good reference /thebutton
+  - ![image](https://github.com/mmurrs/breakTheIce/assets/37455908/24e0aead-5250-437a-8117-d84bceabf42e)
+
 - Reward
 - Spots Taken
 - If the user is on the ice, displays a message "you're on the ice"
