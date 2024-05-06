@@ -14,6 +14,7 @@ import dotenv from 'dotenv';
 // Load environment variables from .env file
 dotenv.config();
 
+
 // Update with redis to use functons or can do dummy data
 const client = createClient({
   password: process.env.REDIS_PASSWORD,
@@ -28,8 +29,7 @@ client.on('error', err => console.log('Redis Client Error', err));
 
 await client.connect();
 // Setup game constraints
-const gameDuration = 3 * 60 * 60 * 1000; // 3 hours in milliseconds
-// const gameDuration = 1 * 60 * 100;
+const gameDuration = 1 * 60 * 100;
 const gameEndTime = Date.now() + gameDuration;
 // const startTargetClicks = Math.floor(Math.random() * 10) + 1;
 const startTargetClicks = 1;
@@ -191,6 +191,11 @@ export const app = new Frog({
   assetsPath: '/',
   basePath: '/api',
   ui: { vars },
+  imageAspectRatio: '1:1',
+  imageOptions: {
+    height: 600,
+    width: 600,
+  },
   // TODO: update browser location
   // Supply a Hub to enable frame verification.
 })
@@ -201,50 +206,45 @@ export const app = new Frog({
 const randomNumber = Math.floor(Math.random() * 10) + 1;
 
 app.use('/*', serveStatic({ root: './public' }))
+
+// Public URL
+const NEXT_PUBLIC_URL = process.env.NEXT_PUBLIC_URL || 'http://localhost:5173'
+
+// Dynamic Image URL
+const FIST_FRAME_IMAGE = `${NEXT_PUBLIC_URL}/first_frame.png`
+
+const MID_GAME_IMAGE = `${NEXT_PUBLIC_URL}/mid_game.png`
+
+const CRACKING_ICE_IMAGE = `${NEXT_PUBLIC_URL}/cracking_ice.png`
+
 // Default Frame
 app.frame('/', async (c) => {
-  const potentialClickers = Number(await client.sCard(roundKey));
-  const currClicks = potentialClickers != null ? potentialClickers : 0;
 
   return c.res({
     image: (
-      <Box>
-        <HStack>
-          {currClicks < 10 ? (
-          <Image 
-            src="/first_frame.png"
-            height="100%"
-          />
-          ) : (
-          <Image 
-            src="/cracking_ice.png"
-            height="100%"
-          />
-          )}
-          <Box alignContent='center' grow flexDirection='column' fontFamily='madimi' paddingTop="2">
+      <Box
+        grow
+        alignVertical="center"
+        backgroundColor="white"
+        padding="32"
+        backgroundImage={`url(${FIST_FRAME_IMAGE})`}
+        height="100%"
+      >
+        ),
           <Spacer size="16" />
-          {currClicks < 10 ? (
-          <Heading align="center" decoration='underline'>Don't Break the Ice</Heading>
-          ) : (
-          <Heading align="center" decoration='underline'>The Ice is Broken!</Heading>
-          )}
-          <Spacer size="16" />
-            {currClicks < 10 ? (
-              <Text align="center">
-                Click the button to get on the ice
-              </Text>
-            ) : (
+          <Heading align="center" decoration='underline' color="black">Don't Break the Ice</Heading>
+            <Spacer size="16" />
+            <Text align="center" color="black">
+              Click the button to get on the ice
+            </Text>
               <VStack>
-                <Text align="center">
+                <Text align="center" color="black">
                   Too many on the ice 
                 </Text>
-                <Text align="center">
+                <Text align="center" color="black">
                   and the game restarts
                 </Text>
               </VStack>
-            )}
-          </Box>
-        </HStack>
       </Box>
     ),
     intents: [
@@ -284,42 +284,41 @@ app.frame('/checkGame', async(c) => {
   // TODO: Inlcude a way to show if the user that clicked the button is in the list of current players
   return c.res({
     image: (
-      <Box>
-        <HStack>
-          <Image 
-            src="/mid_game.png"
-            height="100%"
-          />
-          <Box alignContent='center' grow flexDirection='column' fontFamily='madimi' paddingTop="2">
+      <Box
+        grow
+        alignVertical="center"
+        backgroundColor="white"
+        padding="32"
+        backgroundImage={`url(${MID_GAME_IMAGE})`}
+        height="100%"
+      >
             <Spacer size="16" />
             <Heading align="center">Time Left</Heading>                
-            <Text align="center" color="text200" size="20">
+            <Text align="center" color="black" size="20">
               {timeRemaining <= 0 ? '0hrs 0mins 0secs' : timeRemainingFormatted}
             </Text>
             <Heading align="center">Reward</Heading>                
-            <Text align="center" color="text200" size="20">
+            <Text align="center" color="black" size="20">
               {roundReward}
             </Text>
             <Heading align="center">Spots Taken</Heading>                
-            <Text align="center" color="text200" size="20">
+            <Text align="center" color="black" size="20">
                {currClicks} / {targetClicks}
             </Text>
-            <Box alignContent='center' grow flexDirection='column' fontFamily='madimi' paddingTop="4">
+            <Box alignContent='center' grow flexDirection='column' paddingTop="4">
               <Heading align="center">On the Ice</Heading>
               {usernames.length > 0 ? (
                 usernames.map((username) => (
-                  <Text align="center" color="text200" size="14" font="default">
+                  <Text align="center" color="black" size="14" font="default">
                     {username}, you're on the ice
                   </Text>
                 ))
               ) : (
-                <Text align="center" color="text200" size="14" font="default">
+                <Text align="center" color="black" size="14" font="default">
                   No users currently on the ice.
                 </Text>
               )}
             </Box>
-          </Box>
-        </HStack>
       </Box>
     ),
     intents: [
@@ -333,37 +332,38 @@ app.frame('/checkGame', async(c) => {
 // Used to show the resulting time the button is pressed
 app.frame('/joinTheIce', async(c) => {
   // Check if the game is over
-  const gameOver = await client.get('gameOver');
-  if(gameOver == 'true') {
-    let usernames = await getCurrentPlayers();
-    return c.res({
-    image: (
-      <Box>
-        <HStack >
-          <Image 
-              src= "/mid_game.png"
-              height="100%"
-            />
-            <Box alignContent='center' grow flexDirection='column' fontFamily='madimi' paddingTop="2">
-                <Spacer size="16" />
-                <Box alignContent='center' grow flexDirection='column' fontFamily='madimi' paddingTop="4">
-                  <Heading align="center">On the Ice</Heading>
-                  {usernames.map((username) => (
-                    <Text align="center" color="text200" size="14" font="default">
-                      {username}
-                    </Text>
-                ))}
-                </Box>
-            </Box>
-        </HStack>
-      </Box>
-    ),
-      intents: [
-        <Button value="checkGame" action= "/checkGame">Refresh</Button>,
-        <Button value="rules" action="/"> Rules </Button>,
-      ]
-    })
-  } 
+  // const gameOver = await client.get('gameOver');
+  // if(gameOver == 'true') {
+  //   let usernames = await getCurrentPlayers();
+  //   return c.res({
+  //   image: (
+  //       <Box
+  //         grow
+  //         alignVertical="center"
+  //         backgroundColor="white"
+  //         padding="32"
+  //         backgroundImage={`url(${MID_GAME_IMAGE})`}
+  //         height="100%"
+  //       >
+  //           <Box alignContent='center' grow flexDirection='column' paddingTop="2">
+  //               <Spacer size="16" />
+  //               <Box alignContent='center' grow flexDirection='column' paddingTop="4">
+  //                 <Heading align="center">On the Ice</Heading>
+  //                 {usernames.map((username) => (
+  //                   <Text align="center" color="black" size="14" font="default">
+  //                     {username}
+  //                   </Text>
+  //               ))}
+  //               </Box>
+  //           </Box>
+  //     </Box>
+  //   ),
+  //     intents: [
+  //       <Button value="checkGame" action= "/checkGame">Refresh</Button>,
+  //       <Button value="rules" action="/"> Rules </Button>,
+  //     ]
+  //   })
+  // }
   // Do game checks to see if it is over or not
   // Case - Curr Time > End Time
   const roundEndTime = parseInt(await client.get("roundEndTime") as string, 10);
@@ -390,32 +390,33 @@ app.frame('/joinTheIce', async(c) => {
       initializeGameState(false);
       console.log("After init game state, joinIce")
       return c.res({
-    image: (
-      <Box>
-        <HStack >
-          <Image 
-              src= "/mid_game.png"
-              height="100%"
-            />
-            <Box alignContent='center' grow flexDirection='column' fontFamily='madimi' paddingTop="2">
-                <Spacer size="16" />
-                <Box alignContent='center' grow flexDirection='column' fontFamily='madimi' paddingTop="4">
-                  <Heading align="center">Round Winners</Heading>
-                  {roundWinners.map((roundWinners) => (
-                    <Text align="center" color="text200" size="14" font="default">
-                      {roundWinners}
-                    </Text>
-                ))}
+        image: (
+          <Box
+            grow
+            alignVertical="center"
+            backgroundColor="white"
+            padding="32"
+            backgroundImage={`url(${MID_GAME_IMAGE})`}
+            height="100%"
+          >
+                <Box alignContent='center' grow flexDirection='column' paddingTop="2">
+                    <Spacer size="16" />
+                    <Box alignContent='center' grow flexDirection='column' paddingTop="4">
+                      <Heading align="center">Round Winners</Heading>
+                      {roundWinners.map((roundWinners) => (
+                        <Text align="center" color="black" size="14" font="default">
+                          {roundWinners}
+                        </Text>
+                    ))}
+                    </Box>
                 </Box>
-            </Box>
-        </HStack>
-      </Box>
-    ),
-    intents: [
-      <Button value="checkGame" action= "/checkGame">Refresh</Button>,
-      <Button value="rules" action="/"> Rules </Button>,
-    ]
-  })
+          </Box>
+        ),
+        intents: [
+          <Button value="checkGame" action= "/checkGame">Refresh</Button>,
+          <Button value="rules" action="/"> Rules </Button>,
+        ]
+      })
     } else { 
       // TODO: Update frame to be the same as the base click frame
       console.log("Case - Time expired, start new round");
@@ -444,33 +445,33 @@ app.frame('/joinTheIce', async(c) => {
       // Remove
       return c.res({
         image: (
-          <Box>
-            <HStack >
-              <Image 
-                  src= "/mid_game.png"
-                  height="100%"
-                />
-                <Box alignContent='center' grow flexDirection='column' fontFamily='madimi' paddingTop="2">
+          <Box
+            grow
+            alignVertical="center"
+            backgroundColor="white"
+            padding="32"
+            backgroundImage={`url(${MID_GAME_IMAGE})`}
+            height="100%"
+          >
+                <Box alignContent='center' grow flexDirection='column' paddingTop="2">
                     <Spacer size="16" />
                     <Heading align="center">Time Left</Heading>                
-                    <Text align="center" color="text200" size="20">
+                    <Text align="center" color="black" size="20">
                       {timeRemainingFormatted}
                     </Text>
                     <Heading align="center">Spots Taken</Heading>                
-                    <Text align="center"color="text200" size="20">
+                    <Text align="center"color="black" size="20">
                        {currClicks} / { targetClicks }
                     </Text>
-                    <Box alignContent='center' grow flexDirection='column' fontFamily='madimi' paddingTop="4">
+                    <Box alignContent='center' grow flexDirection='column' paddingTop="4">
                       <Heading align="center">Current Players</Heading>
                       {usernames.map((username) => (
-                        <Text align="center" color="text200" size="14" font="default">
+                        <Text align="center" color="black" size="14" font="default">
                           {username}
                         </Text>
                     ))}
                     </Box>
-                    
                 </Box>
-            </HStack>
           </Box>
         ),
         intents: [
@@ -498,18 +499,17 @@ app.frame('/joinTheIce', async(c) => {
     console.log("after init game, target num exceeded");
     return c.res({
       image: (
-        <Box alignContent='center'>
-          <HStack>
-            <Image 
-              // width="100%" 
-              height="100%" 
-              src="/cracking_ice.png"
-            />
-            <Text align="center" color="text200" size="20">
+        <Box  
+          grow
+          alignVertical="center"
+          backgroundColor="white"
+          padding="32"
+          backgroundImage={`url(${CRACKING_ICE_IMAGE})`}
+          height="100%"
+        >
+            <Text align="center" color="black" size="20">
               You cracked the ice :/
             </Text>
-          </HStack>
-          
         </Box>
       ),
       intents: [
@@ -545,33 +545,33 @@ app.frame('/joinTheIce', async(c) => {
   let usernames = await getCurrentPlayers();
   return c.res({
     image: (
-      <Box>
-        <HStack >
-          <Image 
-              src= "/mid_game.png"
-              height="100%"
-            />
-            <Box alignContent='center' grow flexDirection='column' fontFamily='madimi'>
+      <Box
+        grow
+        alignVertical="center"
+        backgroundColor="white"
+        padding="32"
+        backgroundImage={`url(${MID_GAME_IMAGE})`}
+        height="100%"
+      >
+            <Box alignContent='center' grow flexDirection='column'>
                 <Spacer size="16" />
                 <Heading align="center">Time Left</Heading>                
-                <Text align="center" color="text200" size="20">
+                <Text align="center" color="black" size="20">
                   {timeRemainingFormatted}
                 </Text>
                 <Heading align="center">Spots Taken</Heading>                
-                <Text align="center"color="text200" size="20">
+                <Text align="center"color="black" size="20">
                    {currClicks} / { targetClicks }
                 </Text>
-                <Box alignContent='center' grow flexDirection='column' fontFamily='madimi'>
+                <Box alignContent='center' grow flexDirection='column'>
                   <Heading align="center">Current Players</Heading>
                   {usernames.map((username) => (
-                    <Text align="center" color="text200" size="14" font="default">
+                    <Text align="center" color="black" size="14" font="default">
                       {username}
                     </Text>
                 ))}
                 </Box>
-                
             </Box>
-        </HStack>
       </Box>
     ),
     intents: [
@@ -587,22 +587,22 @@ app.frame('/leaderboard', async (c) => {
 
   return c.res({
       image: (
-          <Box flexDirection="row" height="100%">
-            <HStack>
-            <Image 
-              src= "/mid_game.png"
-              height="100%"
-            />
-              <Box alignContent="center" flexDirection="column" justifyContent="center" fontFamily="madimi" padding="10">
-                  <Heading align="center">Leaderboard</Heading>
-                  {top10.map(player => (
-                      <Box flexDirection="row" justifyContent="space-between" paddingBottom={"1"}>
-                          <Text>{player.value}</Text>
-                          <Text>{player.score.toFixed(2)}</Text>
-                      </Box>
-                  ))}
-              </Box>
-              </HStack>
+          <Box
+            grow
+            alignVertical="center"
+            backgroundColor="white"
+            padding="32"
+            backgroundImage={`url(${MID_GAME_IMAGE})`}
+            height="100%"
+          >
+              <Heading align="center">Leaderboard</Heading>
+                {top10.map(player => (
+                  <Box flexDirection="row" justifyContent="center" paddingBottom={"1"}>
+                      <Text>{player.value}</Text>
+                      <Spacer size="16" />
+                      <Text>{player.score.toFixed(2)}</Text>
+                  </Box>
+                ))}
           </Box>
       ),
       intents: [
@@ -643,21 +643,20 @@ app.frame('/rewards', async(c) => {
     // Show them current reward
     return c.res({
       image: (
-        <Box>
-          <HStack>
-            <Image 
-              src="/first_frame.png"
-              height="100%"
-            />
-            <Box alignContent='center' grow flexDirection='column' fontFamily='madimi' paddingTop="2">
+        <Box
+          grow
+          alignVertical="center"
+          backgroundColor="white"
+          padding="32"
+          backgroundImage={`url(${MID_GAME_IMAGE})`}
+          height="100%"
+        >
             <Spacer size="16" />
             <Heading align="center" >Your Reward</Heading>
             <Spacer size="16" />
-                <Text align="center">
-                 {userScore}
-                </Text>
-            </Box>
-          </HStack>
+              <Text align="center">
+                {userScore}
+              </Text>
         </Box>
       ),
       intents: [
@@ -667,21 +666,20 @@ app.frame('/rewards', async(c) => {
   }
   return c.res({
     image: (
-      <Box>
-        <HStack>
-          <Image 
-            src="/first_frame.png"
-            height="100%"
-          />
-          <Box alignContent='center' grow flexDirection='column' fontFamily='madimi' paddingTop="2">
+      <Box
+        grow
+        alignVertical="center"
+        backgroundColor="white"
+        padding="32"
+        backgroundImage={`url(${MID_GAME_IMAGE})`}
+        height="100%"
+      > 
           <Spacer size="16" />
           <Heading align="center" >Your Reward</Heading>
           <Spacer size="16" />
               <Text align="center">
                 0
               </Text>
-          </Box>
-        </HStack>
       </Box>
     ),
     intents: [
