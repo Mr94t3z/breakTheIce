@@ -347,7 +347,7 @@ app.frame('/joinTheIce', async(c) => {
             <Box alignContent='center' grow flexDirection='column' fontFamily='madimi' paddingTop="2">
                 <Spacer size="16" />
                 <Box alignContent='center' grow flexDirection='column' fontFamily='madimi' paddingTop="4">
-                  <Heading align="center">Winners</Heading>
+                  <Heading align="center">On the Ice</Heading>
                   {usernames.map((username) => (
                     <Text align="center" color="text200" size="14" font="default">
                       {username}
