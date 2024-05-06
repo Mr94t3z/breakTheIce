@@ -16,6 +16,8 @@ Rules of the game:
 
 # Tasks
 Currently this repo is using FrogUI to return the images, instead I would like these to be rendered dynamically with background images.
+##### Overall, formatting you have some creative freedom within those bounds. 
+- Text boxs should handle the case of longer text so it wraps rather than being cut off.
 
 Total of 5 images to be dynamically generated, they will be generated with the images included in "public" as the background
 
@@ -65,5 +67,4 @@ Nice to have
  - include the profile pic of the user next to the username
 
 
-##### Overall, formatting you have some creative freedom within those bounds. 
-- Text boxs should handle the case of longer text so it wraps rather than being cut off.
+
