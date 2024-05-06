@@ -65,5 +65,5 @@ Nice to have
  - include the profile pic of the user next to the username
 
 
-**Overall, formatting you have some creative freedom within those bounds. 
-**- Text boxs should handle the case of longer text so it wraps rather than being cut off.
+##### Overall, formatting you have some creative freedom within those bounds. 
+- Text boxs should handle the case of longer text so it wraps rather than being cut off.
