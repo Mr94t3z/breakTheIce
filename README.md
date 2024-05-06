@@ -14,8 +14,10 @@ Rules of the game:
 - Each person can only click the button once per round
 - Rounds are currently limited to 3 hours
 
+Note: update the Redis details so you can run the repo
+
 # Tasks
-Currently this repo is using FrogUI to return the images, instead I would like these to be rendered dynamically with background images.
+Currently this repo is using FrogUI to return the images, instead I would like these to be rendered dynamically with background images. This data is already contianed in the repo and will be reused for this. 
 ##### Overall, formatting you have some creative freedom within those bounds. 
 - Text boxs should handle the case of longer text so it wraps rather than being cut off.
 
@@ -59,6 +61,7 @@ Include a custom font, using the font family Madimi
 
 #### Leaderboard 
 - Shows the top 10 users based off of total scores
+  - early on their will not be 10 users, so instead display as many users from the 'userScores' table
   - user + score should be displayed
   - can be retrieved from getTop10(), see the existing leaderboard frame for reference
 - shows the current user score (one who clicked the button)
