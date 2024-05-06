@@ -4,12 +4,19 @@ import { handle } from 'frog/vercel';
 import { devtools } from 'frog/dev';
 import { serveStatic } from 'frog/serve-static';
 
-import satori from 'satori';
-
 // Redis
 import { createClient } from 'redis';
 // Frog UI
 import { Box, Heading, Text, VStack, Image, vars, HStack, Columns, Divider, Spacer,  } from './ui.js';
+
+// Update with redis to use funcitons or can do dummy data
+// const client = createClient({
+//   // password: {Your PW},
+//   socket: {
+//       // host: {Your host},
+//       // port: {TY}
+//   }
+// });
 
 const client = createClient({
   password: 'nZUpPOLpXmmeQBTSUL5X3ByDwlPgXE9Y',
@@ -18,7 +25,8 @@ const client = createClient({
       port: 13192
   }
 });
-// client.on('error', err => console.log('Redis Client Error', err));
+
+client.on('error', err => console.log('Redis Client Error', err));
 
 await client.connect();
 // Setup game constraints
@@ -126,37 +134,6 @@ async function getUsernames(fids: string[]) {
   return allUsernames;
 }
 
-async function getUsername(fid: string){
-  // join the fids with a comma
-  console.log("Getting the username of: ", fid);
-  const usernameUrl = 'https://api.neynar.com/v2/farcaster/user/bulk?fids=';
-  // TODO - api key from env
-  const neynarOptions = {
-    method: 'GET',
-    headers: { accept: 'application/json', api_key: '14575066-A15B-4807-9508-F260E1B2223A' }
-  };
-  let temp;
-  let userNameRes;
-  // Fetch the Username from Fid
-  console.log("before try");
-  try{
-    await fetch(usernameUrl + fid, neynarOptions)
-    .then(res => res.json())
-    .then(usernameJson => {
-      temp = usernameJson["users"]
-    })
-    .catch(err => console.error('Fetching username error:' + err));
-    // Loop through temp and creating a new array of "usernames" from temp[i]["username"]
-    if(temp != undefined){
-      userNameRes = temp["username"] as any;
-    }
-  } catch (err) {
-    console.error('Fetching username error:' + err);
-  }
-
-  return userNameRes;
-}
-
 // Function to get all the fids of the users who have clicked the button and then return the usernames
 async function getCurrentPlayers(){
   console.log("Calling getCurrentPlayers");
@@ -215,9 +192,8 @@ export const app = new Frog({
   assetsPath: '/',
   basePath: '/api',
   ui: { vars },
-  browserLocation: "https://swellnetwork.io",
+  // TODO: update browser location
   // Supply a Hub to enable frame verification.
-  // hub: neynar({ apiKey: 'NEYNAR_FROG_FM' })
 })
 
 // Game Vars
@@ -260,7 +236,8 @@ app.frame('/', (c) =>
   intents: [
           <Button value="grab" action= "/joinTheIce">Click Me</Button>,
           <Button value="checkGame" action= "/checkGame">Check Game</Button>, 
-          <Button value="leaderboard" action= "/leaderboard">Leaderboard</Button>
+          <Button value="leaderboard" action= "/leaderboard">Leaderboard</Button>,
+          <Button value="rewards" action="/rewards">Check Rewards</Button>
         ],
     })
 })
@@ -590,10 +567,11 @@ app.frame('/leaderboard', async (c) => {
   return c.res({
       image: (
           <Box flexDirection="row" height="100%">
-              <Box flex={3}>
-                  <Image src="/mid_game.png" width="100%" height="100%" />
+            <HStack>
+              <Box>
+                  <Image src="/mid_game.png" height="100%" />
               </Box>
-              <Box flex={1} alignContent="center" flexDirection="column" justifyContent="center" fontFamily="madimi" padding="2">
+              <Box alignContent="center" flexDirection="column" justifyContent="center" fontFamily="madimi" padding="10">
                   <Heading align="center">Leaderboard</Heading>
                   {top10.map(player => (
                       <Box flexDirection="row" justifyContent="space-between" paddingBottom={"1"}>
@@ -602,13 +580,25 @@ app.frame('/leaderboard', async (c) => {
                       </Box>
                   ))}
               </Box>
+              </HStack>
           </Box>
       ),
+      intents: [
+        <Button action= "/">Rules</Button>
+      ]
   });
 });
 
+app.frame('/rewards', async(c) => {
+  // Display the username and reward for the current user
+  let userScore = await client.zScore('userScores', 'test');
+  // If no rewards show one screen
+  // If there are rewards show a different screen
+  if(userScore != null){
+    // Show them current reward
 
-
+  }
+});
 // Devtools
 // app.use("/", fdk.analyticsMiddleware({ frameId: "Testing", customId: "Test id"}));
 // if (import.meta.env?.MODE === 'development') devtools(app, { serveStatic })
